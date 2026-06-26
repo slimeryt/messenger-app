@@ -1,0 +1,58 @@
+export interface User {
+  uid: string
+  username: string
+  tag: string // 4-digit discriminator e.g. "0042"
+  email: string
+  avatarUrl: string | null
+  bannerUrl: string | null
+  bio: string
+  lastSeen: number
+  online: boolean
+  role: 'user' | 'staff' | 'owner'
+  banned: boolean
+}
+
+export type ChatType = 'dm' | 'group' | 'channel'
+
+export interface Chat {
+  id: string
+  type: ChatType
+  name: string
+  avatarUrl: string | null
+  memberIds: string[]
+  lastMessage: string
+  lastMessageTime: number
+  createdBy: string
+  unread?: number
+}
+
+export type MessageType = 'text' | 'image' | 'audio' | 'file' | 'system'
+
+export interface Message {
+  id: string
+  chatId: string
+  senderId: string
+  content: string
+  type: MessageType
+  replyToId: string | null
+  replyToContent?: string
+  replyToSender?: string
+  reactions: Record<string, string[]> // emoji -> uid[]
+  attachmentUrl: string | null
+  attachmentMeta: { name: string; size: number; mime: string } | null
+  edited: boolean
+  deleted: boolean
+  createdAt: number
+  pinned: boolean
+}
+
+export interface TypingState {
+  [uid: string]: string // uid -> username
+}
+
+export interface UpdateInfo {
+  version: string
+  force: boolean
+  notes: string
+  downloadUrl: string
+}
