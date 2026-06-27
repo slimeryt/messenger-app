@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { collection, getDocs, query, where, addDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { ChatListScreen } from './ChatListScreen'
@@ -11,6 +11,7 @@ import { useLang } from '../../contexts/LangContext'
 import { Avatar } from '../ui/Avatar'
 import { MessageSquare, Settings, Users, Search, UserPlus, Phone, ChevronRight } from 'lucide-react'
 import { User } from '../../types'
+import { useSwipe } from '../../hooks/useSwipe'
 
 type Tab = 'chats' | 'contacts' | 'settings' | 'profile'
 
@@ -19,18 +20,77 @@ export function AppLayout() {
   const { activeChatId, setActiveChatId } = useChatStore()
   const me = useAuthStore((s) => s.user)
   const { t } = useLang()
+  const navRef = useRef<HTMLDivElement>(null)
+  const btnRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const [pill, setPill] = useState({ left: 0, width: 0, ready: false })
+
+  const TAB_IDS: Tab[] = ['chats', 'contacts', 'settings', 'profile']
+
+  useLayoutEffect(() => {
+    const idx = TAB_IDS.indexOf(tab)
+    const btn = btnRefs.current[idx]
+    const nav = navRef.current
+    if (!btn || !nav) return
+    const btnRect = btn.getBoundingClientRect()
+    const navRect = nav.getBoundingClientRect()
+    setPill({ left: btnRect.left - navRect.left, width: btnRect.width, ready: true })
+  }, [tab])
+
+  // Swipe right-from-edge to go back from chat, with drag effect
+  const dragX = useRef(0)
+  const dragEl = useRef<HTMLDivElement>(null)
+  const dragging = useRef(false)
+
+  // Swipe left/right to switch tabs (must be before any early return)
+  const tabSwipe = useSwipe({
+    onSwipeLeft:  () => { const i = TAB_IDS.indexOf(tab); if (i < TAB_IDS.length - 1) setTab(TAB_IDS[i + 1]) },
+    onSwipeRight: () => { const i = TAB_IDS.indexOf(tab); if (i > 0) setTab(TAB_IDS[i - 1]) },
+    threshold: 60,
+  })
+
+  function onChatTouchStart(e: React.TouchEvent) {
+    if (e.touches[0].clientX > 32) return
+    dragging.current = true
+    dragX.current = 0
+  }
+  function onChatTouchMove(e: React.TouchEvent) {
+    if (!dragging.current) return
+    const dx = Math.max(0, e.touches[0].clientX - 16)
+    dragX.current = dx
+    if (dragEl.current) dragEl.current.style.transform = `translateX(${dx}px)`
+  }
+  function onChatTouchEnd() {
+    if (!dragging.current) return
+    dragging.current = false
+    if (dragX.current > 100) {
+      setActiveChatId(null)
+    } else {
+      if (dragEl.current) {
+        dragEl.current.style.transition = 'transform 0.25s cubic-bezier(0.25,1,0.5,1)'
+        dragEl.current.style.transform = 'translateX(0)'
+        setTimeout(() => { if (dragEl.current) dragEl.current.style.transition = '' }, 260)
+      }
+    }
+    dragX.current = 0
+  }
 
   if (activeChatId) {
     return (
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
+      <div
+        ref={dragEl}
+        onTouchStart={onChatTouchStart}
+        onTouchMove={onChatTouchMove}
+        onTouchEnd={onChatTouchEnd}
+        style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)', paddingTop: 'env(safe-area-inset-top)' }}
+      >
         <ChatPage onBack={() => setActiveChatId(null)} />
       </div>
     )
   }
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)', position: 'relative' }}>
-      <div style={{ flex: 1, overflow: 'hidden', paddingBottom: 80 }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)', position: 'relative', paddingTop: 'env(safe-area-inset-top)' }}>
+      <div {...tabSwipe} style={{ flex: 1, overflow: 'hidden', paddingBottom: 80 }}>
         {tab === 'chats' && <ChatListScreen />}
         {tab === 'contacts' && <ContactsScreen />}
         {tab === 'settings' && <SettingsScreen />}
@@ -39,6 +99,7 @@ export function AppLayout() {
 
       {/* Floating pill navbar */}
       <div
+        ref={navRef}
         style={{
           position: 'absolute',
           bottom: `calc(16px + env(safe-area-inset-bottom))`,
@@ -51,8 +112,26 @@ export function AppLayout() {
           border: '1px solid var(--border)',
           borderRadius: 999,
           padding: '6px 8px',
+          overflow: 'hidden',
         }}
       >
+        {/* Sliding pill indicator */}
+        {pill.ready && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 6,
+              bottom: 6,
+              left: pill.left - 4,
+              width: pill.width + 8,
+              background: 'var(--bg-4)',
+              borderRadius: 999,
+              transition: 'left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+
         {([
           { id: 'chats' as Tab, icon: (c: string, a: boolean) => <MessageSquare size={20} color={c} fill={a ? c : 'none'} />, label: t('chats') },
           { id: 'contacts' as Tab, icon: (c: string, a: boolean) => <Users size={20} color={c} fill={a ? c : 'none'} />, label: t('contacts') },
@@ -62,26 +141,29 @@ export function AppLayout() {
               <Avatar url={me?.avatarUrl ?? null} name={me?.username ?? '?'} size={20} />
             </div>
           ) },
-        ]).map((item) => {
+        ]).map((item, idx) => {
           const active = tab === item.id
           const color = active ? 'var(--accent)' : 'var(--text-3)'
           return (
             <button
               key={item.id}
+              ref={(el) => { btnRefs.current[idx] = el }}
               onClick={() => setTab(item.id)}
               style={{
+                position: 'relative',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 3,
-                padding: '8px 16px',
+                padding: '8px 24px',
                 borderRadius: 999,
-                background: active ? 'var(--bg-4)' : 'transparent',
+                background: 'transparent',
                 color,
                 fontSize: 10,
                 fontWeight: active ? 600 : 400,
-                transition: 'background 0.15s, color 0.15s',
+                transition: 'color 0.2s',
+                zIndex: 1,
               }}
             >
               {item.icon(color, active)}
@@ -198,10 +280,10 @@ function ContactsScreen() {
         <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
           <button
             onClick={inviteFriend}
-            style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 14px', textAlign: 'left' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '5px 14px', textAlign: 'left' }}
           >
-            <div style={{ width: 44, height: 44, borderRadius: 14, background: 'linear-gradient(135deg,#3b82f6,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <UserPlus size={20} color="#fff" />
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#3b82f6,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <UserPlus size={16} color="#fff" />
             </div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 500 }}>Invite Friends</div>
@@ -209,14 +291,12 @@ function ContactsScreen() {
             </div>
           </button>
 
-          <div style={{ height: 1, background: 'var(--border)', marginInline: 14 }} />
-
           <button
             onClick={() => setShowCalls((v) => !v)}
-            style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '12px 14px', textAlign: 'left' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '5px 14px', textAlign: 'left' }}
           >
-            <div style={{ width: 44, height: 44, borderRadius: 14, background: 'linear-gradient(135deg,#10b981,#059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Phone size={20} color="#fff" />
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#10b981,#059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Phone size={16} color="#fff" />
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 15, fontWeight: 500 }}>Recent Calls</div>

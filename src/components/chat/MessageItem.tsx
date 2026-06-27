@@ -1,6 +1,6 @@
 import { Message, User } from '../../types'
 import { Avatar } from '../ui/Avatar'
-import { Mic, FileText, CornerUpLeft, ImageIcon } from 'lucide-react'
+import { Play, Pause, FileText, CornerUpLeft, ImageIcon } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { openUrl } from '../../lib/browser'
 
@@ -155,7 +155,7 @@ export function MessageItem({ msg, sender, isOwn, onReply, onReact }: Props) {
           }}
         >
           {msg.type === 'audio' ? (
-            <AudioMessage url={msg.attachmentUrl!} />
+            <AudioMessage url={msg.attachmentUrl!} isOwn={isOwn} />
           ) : msg.type === 'image' && msg.attachmentUrl ? (
             <AutoImage url={msg.attachmentUrl} />
           ) : msg.type === 'file' && msg.attachmentUrl ? (
@@ -245,11 +245,118 @@ export function MessageItem({ msg, sender, isOwn, onReply, onReact }: Props) {
   )
 }
 
-function AudioMessage({ url }: { url: string }) {
+function AudioMessage({ url, isOwn }: { url: string; isOwn: boolean }) {
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const [playing, setPlaying] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [current, setCurrent] = useState(0)
+  const [barHeights, setBarHeights] = useState<number[]>([])
+  const bars = 28
+
+  // Decode audio and extract real waveform
+  useEffect(() => {
+    async function extractWaveform() {
+      try {
+        const ctx = new AudioContext()
+        const res = await fetch(url)
+        const buf = await res.arrayBuffer()
+        const decoded = await ctx.decodeAudioData(buf)
+        const data = decoded.getChannelData(0)
+        const step = Math.floor(data.length / bars)
+        const heights = Array.from({ length: bars }, (_, i) => {
+          let sum = 0
+          for (let j = 0; j < step; j++) sum += Math.abs(data[i * step + j])
+          const avg = sum / step
+          return Math.max(3, Math.round(avg * 80))
+        })
+        setBarHeights(heights)
+        ctx.close()
+      } catch {
+        // fallback: random-ish heights
+        setBarHeights(Array.from({ length: bars }, (_, i) => 4 + Math.floor(Math.abs(Math.sin(i * 1.3)) * 16)))
+      }
+    }
+    extractWaveform()
+  }, [url])
+
+  useEffect(() => {
+    const a = audioRef.current
+    if (!a) return
+    const onTime = () => {
+      setCurrent(a.currentTime)
+      setProgress(a.duration ? a.currentTime / a.duration : 0)
+    }
+    const onLoaded = () => setDuration(a.duration)
+    const onEnded = () => { setPlaying(false); setProgress(0); setCurrent(0) }
+    a.addEventListener('timeupdate', onTime)
+    a.addEventListener('loadedmetadata', onLoaded)
+    a.addEventListener('ended', onEnded)
+    return () => { a.removeEventListener('timeupdate', onTime); a.removeEventListener('loadedmetadata', onLoaded); a.removeEventListener('ended', onEnded) }
+  }, [])
+
+  function togglePlay() {
+    const a = audioRef.current
+    if (!a) return
+    if (playing) { a.pause(); setPlaying(false) }
+    else { a.play(); setPlaying(true) }
+  }
+
+  function seek(e: React.MouseEvent<HTMLDivElement>) {
+    const a = audioRef.current
+    if (!a || !a.duration) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const pct = (e.clientX - rect.left) / rect.width
+    a.currentTime = pct * a.duration
+  }
+
+  function fmt(s: number) {
+    const m = Math.floor(s / 60)
+    return `${m}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+  }
+
+  const accent = isOwn ? 'rgba(255,255,255,0.9)' : 'var(--accent)'
+  const dim = isOwn ? 'rgba(255,255,255,0.35)' : 'var(--text-3)'
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
-      <Mic size={16} style={{ flexShrink: 0 }} />
-      <audio controls src={url} style={{ height: 28, flex: 1 }} />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 200, maxWidth: 260 }}>
+      <audio ref={audioRef} src={url} preload="metadata" />
+
+      {/* Play/Pause */}
+      <button
+        onClick={togglePlay}
+        style={{ width: 36, height: 36, borderRadius: '50%', background: isOwn ? 'rgba(255,255,255,0.2)' : 'var(--bg-4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: isOwn ? '#fff' : 'var(--text)' }}
+      >
+        {playing ? <Pause size={16} /> : <Play size={16} />}
+      </button>
+
+      {/* Waveform + time */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {/* Waveform bars (seekable) */}
+        {(() => {
+          const heights = barHeights.length ? barHeights : Array.from({ length: bars }, () => 8)
+          const renderBars = (color: string) => (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 1.5, height: 24 }}>
+              {Array.from({ length: bars }).map((_, i) => (
+                <div key={i} style={{ width: 2.5, borderRadius: 2, height: heights[i % heights.length], background: color, flexShrink: 0 }} />
+              ))}
+            </div>
+          )
+          return (
+            <div onClick={seek} style={{ position: 'relative', cursor: 'pointer', height: 24 }}>
+              {renderBars(dim)}
+              <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', width: `${progress * 100}%`, transition: 'width 0.08s linear' }}>
+                {renderBars(accent)}
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* Time */}
+        <span style={{ fontSize: 10, color: dim, fontVariantNumeric: 'tabular-nums' }}>
+          {playing || current > 0 ? fmt(current) : fmt(duration)}
+        </span>
+      </div>
     </div>
   )
 }

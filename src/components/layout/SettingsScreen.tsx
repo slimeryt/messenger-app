@@ -9,7 +9,7 @@ import { requestNotificationPermission } from '../../lib/notifications'
 import { Avatar } from '../ui/Avatar'
 import { ProfileModal } from './ProfileModal'
 import { StaffMenu } from './StaffMenu'
-import { ChevronRight, LogOut, ShieldAlert, User, Bell, MessageSquare, Shield, Database, Monitor, Zap, Globe, ArrowLeft, Check, Smartphone, Trash2, Loader2, LogOutIcon, Phone, AtSign, Cake } from 'lucide-react'
+import { ChevronRight, LogOut, ShieldAlert, User, Bell, MessageSquare, Shield, Database, Monitor, Zap, Globe, ArrowLeft, Check, Smartphone, Trash2, Loader2, LogOutIcon, Phone, AtSign, Cake, HardDrive, Activity } from 'lucide-react'
 import { SESSION_ID } from '../../App'
 
 function ls(key: string, def: string) {
@@ -64,24 +64,24 @@ export function SettingsScreen() {
         </button>
 
         <Panel>
-          <Row icon={<User size={18} />}         iconBg="#3b82f6" label="Account"            desc={me?.email ?? '—'}         onClick={() => setPage('account')} />
-          <Row icon={<MessageSquare size={18} />} iconBg="#8b5cf6" label="Chat Settings"     desc="Bubbles, themes & more"    onClick={() => setPage('chat')} />
-          <Row icon={<Shield size={18} />}        iconBg="#10b981" label="Privacy & Security" desc="Blocked users, passcode"  onClick={() => setPage('privacy')} />
-          <Row icon={<Bell size={18} />}          iconBg="#f59e0b" label="Notifications"      desc="Sounds & alerts"          onClick={() => setPage('notifications')} />
-          <Row icon={<Database size={18} />}      iconBg="#06b6d4" label="Data and Storage"   desc="Auto-download, cache"     onClick={() => setPage('data')} />
-          <Row icon={<Monitor size={18} />}       iconBg="#6366f1" label="Devices"            desc="Linked devices"           onClick={() => setPage('devices')} />
-          <Row icon={<Zap size={18} />}           iconBg="#f97316" label="Power Saving"       desc="Reduce animations"        onClick={() => setPage('power')} />
-          <Row icon={<Globe size={18} />}         iconBg="#14b8a6" label="Language"           desc="English"                  onClick={() => setPage('language')} />
+          <Row icon={<User size={16} />}         iconBg="#3b82f6" label="Account"            desc={me?.email ?? '—'}         onClick={() => setPage('account')} />
+          <Row icon={<MessageSquare size={16} />} iconBg="#8b5cf6" label="Chat Settings"     desc="Bubbles, themes & more"    onClick={() => setPage('chat')} />
+          <Row icon={<Shield size={16} />}        iconBg="#10b981" label="Privacy & Security" desc="Blocked users, passcode"  onClick={() => setPage('privacy')} />
+          <Row icon={<Bell size={16} />}          iconBg="#f59e0b" label="Notifications"      desc="Sounds & alerts"          onClick={() => setPage('notifications')} />
+          <Row icon={<Database size={16} />}      iconBg="#06b6d4" label="Data and Storage"   desc="Auto-download, cache"     onClick={() => setPage('data')} />
+          <Row icon={<Monitor size={16} />}       iconBg="#6366f1" label="Devices"            desc="Linked devices"           onClick={() => setPage('devices')} />
+          <Row icon={<Zap size={16} />}           iconBg="#f97316" label="Power Saving"       desc="Reduce animations"        onClick={() => setPage('power')} />
+          <Row icon={<Globe size={16} />}         iconBg="#14b8a6" label="Language"           desc="English"                  onClick={() => setPage('language')} />
         </Panel>
 
         {(me?.role === 'staff' || me?.role === 'owner') && (
           <Panel>
-            <Row icon={<ShieldAlert size={18} />} iconBg="#ef4444" label="Staff Menu" desc="Manage users" onClick={() => setPage('staff')} />
+            <Row icon={<ShieldAlert size={16} />} iconBg="#ef4444" label="Staff Menu" desc="Manage users" onClick={() => setPage('staff')} />
           </Panel>
         )}
 
         <Panel>
-          <Row icon={<LogOut size={18} />} iconBg="#ef4444" label="Sign Out" desc="See ya" onClick={() => signOut(auth)} danger />
+          <Row icon={<LogOut size={16} />} iconBg="#ef4444" label="Sign Out" desc="See ya" onClick={() => signOut(auth)} danger />
         </Panel>
       </div>
 
@@ -108,7 +108,7 @@ function SettingsPage({ page, onBack }: { page: Page; onBack: () => void }) {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 8px', height: 56, borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
         <button onClick={onBack} style={{ color: 'var(--accent)', padding: 8, display: 'flex', alignItems: 'center' }}>
-          <ArrowLeft size={22} />
+          <ArrowLeft size={16} />
         </button>
         <span style={{ fontSize: 17, fontWeight: 600 }}>{PAGE_TITLES[page]}</span>
       </div>
@@ -170,9 +170,9 @@ function AccountPage() {
         <div style={{ padding: '10px 16px 4px' }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Your info</div>
         </div>
-        <InfoField icon={<Phone  size={22} fill="#fff" strokeWidth={0} />} iconBg="#3b82f6" label="Number"   value={phone}    onChange={setPhone}    placeholder="Phone number" type="tel" />
-        <InfoField icon={<AtSign size={22} color="#fff" />} iconBg="#8b5cf6" label="Username" value={username}  onChange={setUsername}  placeholder="username" />
-        <InfoField icon={<Cake   size={22} fill="#fff" strokeWidth={0} />} iconBg="#ec4899" label="Birthday" value={birthday}  onChange={setBirthday}  placeholder="DD/MM/YYYY" type="date" />
+        <InfoField icon={<Phone  size={16} fill="#fff" strokeWidth={0} />} iconBg="#3b82f6" label="Number"   value={phone}    onChange={setPhone}    placeholder="Phone number" type="tel" />
+        <InfoField icon={<AtSign size={16} color="#fff" />} iconBg="#8b5cf6" label="Username" value={username}  onChange={setUsername}  placeholder="username" />
+        <InfoField icon={<Cake   size={16} fill="#fff" strokeWidth={0} />} iconBg="#ec4899" label="Birthday" value={birthday}  onChange={setBirthday}  placeholder="DD/MM/YYYY" type="date" />
       </Panel>
 
     </div>
@@ -530,13 +530,19 @@ function DataStoragePage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <Panel>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px' }}>
-          <span style={{ fontSize: 15, color: 'var(--text)' }}>Storage Used</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 16px' }}>
+          <span style={{ width: 30, height: 30, borderRadius: 10, background: 'linear-gradient(160deg, #38bdf8, #0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <HardDrive size={16} color="#fff" />
+          </span>
+          <span style={{ flex: 1, fontSize: 15, color: 'var(--text)' }}>Storage Used</span>
           <span style={{ fontSize: 14, color: 'var(--text-3)' }}>{storageUsed}</span>
         </div>
         <FieldDivider />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 16px' }}>
-          <span style={{ fontSize: 15, color: 'var(--text)' }}>Data Usage</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 16px' }}>
+          <span style={{ width: 30, height: 30, borderRadius: 10, background: 'linear-gradient(160deg, #34d399, #059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Activity size={16} color="#fff" />
+          </span>
+          <span style={{ flex: 1, fontSize: 15, color: 'var(--text)' }}>Data Usage</span>
           <span style={{ fontSize: 14, color: 'var(--text-3)' }}>{dataUsed}</span>
         </div>
       </Panel>
@@ -614,7 +620,7 @@ function DevicesPage() {
           disabled={terminating}
           style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '14px 16px', color: 'var(--danger)' }}
         >
-          <LogOutIcon size={18} style={{ flexShrink: 0 }} />
+          <LogOutIcon size={16} style={{ flexShrink: 0 }} />
           <span style={{ fontSize: 15, fontWeight: 500 }}>
             {terminating ? 'Terminating…' : 'Terminate All Other Sessions'}
           </span>
@@ -710,7 +716,7 @@ function InfoField({ icon, iconBg, label, value, onChange, placeholder, type = '
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 16px' }}>
       <span style={{
-        width: 44, height: 44, borderRadius: 14, flexShrink: 0,
+        width: 30, height: 30, borderRadius: 10, flexShrink: 0,
         background: `linear-gradient(160deg, ${lighten(iconBg)}, ${darken(iconBg)})`,
         display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
       }}>
@@ -859,7 +865,7 @@ function Row({ icon, iconBg, label, desc, onClick, danger }: {
       style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', padding: '11px 16px', textAlign: 'left', color: danger ? 'var(--danger)' : 'var(--text)' }}
     >
       <span style={{
-        width: 36, height: 36, borderRadius: 12,
+        width: 30, height: 30, borderRadius: 10,
         background: `linear-gradient(160deg, ${lighten(iconBg)}, ${darken(iconBg)})`,
         display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0,
       }}>

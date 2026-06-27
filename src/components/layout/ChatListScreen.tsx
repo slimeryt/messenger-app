@@ -84,7 +84,6 @@ export function ChatListScreen() {
           height: 56,
           borderBottom: '1px solid var(--border)',
           flexShrink: 0,
-          paddingTop: 'env(safe-area-inset-top)',
         }}
       >
         <span style={{ fontSize: 18, fontWeight: 700 }}>Chats</span>
@@ -119,6 +118,25 @@ export function ChatListScreen() {
           <div>
             <div style={{ fontWeight: 600, fontSize: 15 }}>Saved Messages</div>
             <div style={{ fontSize: 13, color: 'var(--text-2)' }}>Your personal space</div>
+          </div>
+        </button>
+
+        {/* Demo preview */}
+        <button
+          onClick={() => setActiveChatId('demo-preview')}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '10px 16px', textAlign: 'left' }}
+        >
+          <div style={{ width: 50, height: 50, borderRadius: '50%', background: 'linear-gradient(135deg,#f59e0b,#ef4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 22, fontWeight: 700, color: '#fff' }}>
+            A
+          </div>
+          <div style={{ flex: 1, minWidth: 0, borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
+              <span style={{ fontWeight: 600, fontSize: 15 }}>Alex</span>
+              <span style={{ fontSize: 12, color: 'var(--text-3)', flexShrink: 0, marginLeft: 8 }}>2m</span>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              Around 8pm, bring snacks lol 🎉
+            </div>
           </div>
         </button>
 

@@ -4,11 +4,12 @@ import { Download, AlertTriangle } from 'lucide-react'
 
 interface Props {
   info: UpdateInfo
+  downloading?: boolean
   onUpdate: () => void
   onLater?: () => void
 }
 
-export function UpdateModal({ info, onUpdate, onLater }: Props) {
+export function UpdateModal({ info, downloading, onUpdate, onLater }: Props) {
   return (
     <div
       style={{
@@ -62,9 +63,9 @@ export function UpdateModal({ info, onUpdate, onLater }: Props) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <Button onClick={onUpdate} fullWidth>
+          <Button onClick={onUpdate} fullWidth disabled={downloading}>
             <Download size={15} />
-            Download & Install
+            {downloading ? 'Downloading…' : 'Download & Install'}
           </Button>
           {!info.force && onLater && (
             <Button variant="ghost" onClick={onLater} fullWidth>

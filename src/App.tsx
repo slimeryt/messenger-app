@@ -11,6 +11,13 @@ import { checkForUpdate } from './lib/updater'
 import { UpdateInfo } from './types'
 import { firebaseConfigured } from './firebase'
 import { LangProvider } from './contexts/LangContext'
+import { PushNotifications } from '@capacitor/push-notifications'
+import { Camera } from '@capacitor/camera'
+import { Capacitor, CapacitorHttp, registerPlugin } from '@capacitor/core'
+import { Filesystem, Directory } from '@capacitor/filesystem'
+
+interface ApkInstallerPlugin { install(opts: { path: string }): Promise<void> }
+const ApkInstaller = registerPlugin<ApkInstallerPlugin>('ApkInstaller')
 
 export const SESSION_ID = `${Date.now()}-${Math.random().toString(36).slice(2)}`
 
@@ -29,6 +36,22 @@ export default function App() {
   const [downloading, setDownloading] = useState(false)
 
   useEffect(() => { applyStoredSettings() }, [])
+
+  useEffect(() => {
+    async function requestPermissions() {
+      if (!Capacitor.isNativePlatform()) return
+      // Notifications
+      try { await PushNotifications.requestPermissions() } catch {}
+      // Camera + Photos (covers gallery READ_MEDIA_IMAGES)
+      try { await Camera.requestPermissions({ permissions: ['camera', 'photos'] }) } catch {}
+      // Microphone
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({ audio: true })
+        s.getTracks().forEach(t => t.stop())
+      } catch {}
+    }
+    requestPermissions()
+  }, [])
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -71,8 +94,26 @@ export default function App() {
   async function handleUpdate() {
     if (!updateInfo) return
     setDownloading(true)
-    window.open(updateInfo.downloadUrl, '_blank')
-    setDownloading(false)
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const res = await CapacitorHttp.get({
+          url: updateInfo.downloadUrl,
+          headers: { Accept: 'application/octet-stream' },
+          responseType: 'blob',
+        })
+        if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`)
+        const base64 = res.data as string
+        await Filesystem.writeFile({ path: 'update.apk', data: base64, directory: Directory.Cache })
+        const { uri } = await Filesystem.getUri({ path: 'update.apk', directory: Directory.Cache })
+        await ApkInstaller.install({ path: uri.replace('file://', '') })
+      } else {
+        window.open(updateInfo.downloadUrl, '_blank')
+      }
+    } catch (e: any) {
+      alert(`Update failed: ${e?.message ?? e}`)
+    } finally {
+      setDownloading(false)
+    }
   }
 
   if (!firebaseConfigured) {
@@ -102,6 +143,7 @@ export default function App() {
       {showUpdate && (
         <UpdateModal
           info={updateInfo!}
+          downloading={downloading}
           onUpdate={handleUpdate}
           onLater={updateInfo?.force ? undefined : () => setUpdateDismissed(true)}
         />

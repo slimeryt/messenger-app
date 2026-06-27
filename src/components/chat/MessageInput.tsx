@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import {
   addDoc,
   collection,
@@ -12,7 +12,8 @@ import { db } from '../../firebase'
 import { compressImage, fileToBase64 } from '../../lib/toBase64'
 import { useAuthStore } from '../../store/authStore'
 import { Message } from '../../types'
-import { Send, Paperclip, Mic, MicOff, X } from 'lucide-react'
+import { Send, Mic, Trash2, X, Image } from 'lucide-react'
+import { ImagePickerSheet } from './ImagePickerSheet'
 
 interface Props {
   chatId: string
@@ -24,12 +25,29 @@ interface Props {
 export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props) {
   const [text, setText] = useState('')
   const [recording, setRecording] = useState(false)
+  const [recSeconds, setRecSeconds] = useState(0)
   const [uploading, setUploading] = useState(false)
+  const [pendingFile, setPendingFile] = useState<{ data: string; name: string; size: number; mime: string; isImage: boolean } | null>(null)
+  const [showPicker, setShowPicker] = useState(false)
+  const [pendingImages, setPendingImages] = useState<{ data: string; name: string; size: number }[]>([])
   const me = useAuthStore((s) => s.user)
   const mediaRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const recTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  const shouldSendRef = useRef(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (recording) {
+      setRecSeconds(0)
+      recTimer.current = setInterval(() => setRecSeconds(s => s + 1), 1000)
+    } else {
+      if (recTimer.current) clearInterval(recTimer.current)
+      setRecSeconds(0)
+    }
+    return () => { if (recTimer.current) clearInterval(recTimer.current) }
+  }, [recording])
 
   if (readOnly) {
     return (
@@ -70,26 +88,37 @@ export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props
   }
 
   async function handleSend() {
+    if (!pendingFile && !text.trim()) return
     const content = text.trim()
-    if (!content) return
     setText('')
     clearTyping()
-    await sendMessage(content)
+    if (pendingImages.length > 0) {
+      setUploading(true)
+      for (const img of pendingImages) {
+        await sendMessage(img.name, 'image', img.data, { name: img.name, size: img.size, mime: 'image/jpeg' })
+      }
+      setPendingImages([])
+      setUploading(false)
+    }
+    if (pendingFile) {
+      setUploading(true)
+      await sendMessage(pendingFile.name, pendingFile.isImage ? 'image' : 'file', pendingFile.data, {
+        name: pendingFile.name, size: pendingFile.size, mime: pendingFile.mime,
+      })
+      setPendingFile(null)
+      setUploading(false)
+    }
+    if (content) await sendMessage(content)
   }
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement> | Event) {
+    const input = (e as any).target as HTMLInputElement
+    const file = input.files?.[0]
     if (!file || !me) return
-    setUploading(true)
     const isImage = file.type.startsWith('image/')
     const data = isImage ? await compressImage(file) : await fileToBase64(file)
-    await sendMessage(file.name, isImage ? 'image' : 'file', data, {
-      name: file.name,
-      size: file.size,
-      mime: file.type,
-    })
-    setUploading(false)
-    e.target.value = ''
+    setPendingFile({ data, name: file.name, size: file.size, mime: file.type, isImage })
+    input.value = ''
   }
 
   async function startRecording() {
@@ -99,6 +128,7 @@ export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props
     mr.ondataavailable = (e) => chunksRef.current.push(e.data)
     mr.onstop = async () => {
       stream.getTracks().forEach((t) => t.stop())
+      if (!shouldSendRef.current) return
       const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
       const reader = new FileReader()
       reader.onload = async () => {
@@ -111,7 +141,15 @@ export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props
     setRecording(true)
   }
 
-  function stopRecording() {
+  function sendRecording() {
+    shouldSendRef.current = true
+    mediaRef.current?.stop()
+    mediaRef.current = null
+    setRecording(false)
+  }
+
+  function cancelRecording() {
+    shouldSendRef.current = false
     mediaRef.current?.stop()
     mediaRef.current = null
     setRecording(false)
@@ -140,8 +178,68 @@ export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props
     }
   }
 
+  const mm = String(Math.floor(recSeconds / 60)).padStart(2, '0')
+  const ss = String(recSeconds % 60).padStart(2, '0')
+
+  if (recording) {
+    return (
+      <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        {/* Cancel */}
+        <button onClick={cancelRecording} style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--bg-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', flexShrink: 0 }}>
+          <Trash2 size={17} />
+        </button>
+
+        {/* Waveform + timer */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 20, padding: '8px 14px' }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', flexShrink: 0, animation: 'vm-pulse 1s ease-in-out infinite' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1 }}>
+            {Array.from({ length: 28 }).map((_, i) => (
+              <div key={i} style={{ width: 2, borderRadius: 2, background: 'var(--accent)', animationName: 'vm-wave', animationDuration: `${0.4 + (i % 5) * 0.1}s`, animationTimingFunction: 'ease-in-out', animationIterationCount: 'infinite', animationDirection: 'alternate', animationDelay: `${(i % 7) * 0.06}s`, height: 4 }} />
+            ))}
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-2)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{mm}:{ss}</span>
+        </div>
+
+        {/* Send */}
+        <button onClick={sendRecording} style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
+          <Send size={17} />
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
+      {pendingImages.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, padding: '8px 14px', borderBottom: '1px solid var(--border)', overflowX: 'auto' }}>
+          {pendingImages.map((img, i) => (
+            <div key={i} style={{ position: 'relative', flexShrink: 0 }}>
+              <img src={img.data} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, display: 'block' }} />
+              <button
+                onClick={() => setPendingImages(p => p.filter((_, j) => j !== i))}
+                style={{ position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: '50%', background: 'var(--bg-3)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}
+              >
+                <X size={10} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {pendingFile && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
+          {pendingFile.isImage
+            ? <img src={pendingFile.data} alt="" style={{ height: 56, width: 56, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />
+            : <div style={{ height: 56, width: 56, borderRadius: 8, background: 'var(--bg-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 11, color: 'var(--text-3)', textAlign: 'center', padding: 4 }}>{pendingFile.mime.split('/')[1]?.toUpperCase()}</div>
+          }
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pendingFile.name}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>{(pendingFile.size / 1024).toFixed(1)} KB</div>
+          </div>
+          <button onClick={() => setPendingFile(null)} style={{ color: 'var(--text-3)', padding: 4, flexShrink: 0 }}>
+            <X size={16} />
+          </button>
+        </div>
+      )}
       {replyTo && (
         <div
           style={{
@@ -172,73 +270,68 @@ export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props
         </div>
       )}
 
+      {showPicker && (
+        <ImagePickerSheet
+          onClose={() => setShowPicker(false)}
+          onSend={(imgs) => setPendingImages(imgs)}
+        />
+      )}
+
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, padding: '10px 12px' }}>
         <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={handleFile} />
-        <button
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          style={{ color: 'var(--text-2)', padding: 6, flexShrink: 0 }}
-        >
-          <Paperclip size={20} />
-        </button>
 
-        <textarea
-          value={text}
-          onChange={(e) => { setText(e.target.value); notifyTyping() }}
-          onKeyDown={handleKey}
-          placeholder="Message"
-          rows={1}
-          style={{
-            flex: 1,
-            background: 'var(--bg-3)',
-            border: '1px solid var(--border)',
-            borderRadius: 20,
-            padding: '8px 14px',
-            color: 'var(--text)',
-            fontSize: 14,
-            lineHeight: 1.5,
-            maxHeight: 120,
-            overflowY: 'auto',
-          }}
-          onInput={(e) => {
-            const el = e.currentTarget
-            el.style.height = 'auto'
-            el.style.height = Math.min(el.scrollHeight, 120) + 'px'
-          }}
-        />
+        {/* Pill: clip + textarea + mic */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: 20, padding: '4px 6px 4px 4px', gap: 2 }}>
+          <button
+            onClick={() => setShowPicker(v => !v)}
+            disabled={uploading}
+            style={{ color: 'var(--text-3)', padding: '4px 6px', flexShrink: 0, display: 'flex', alignItems: 'center' }}
+          >
+            <Image size={18} />
+          </button>
 
-        {text.trim() ? (
-          <button
-            onClick={handleSend}
+          <textarea
+            value={text}
+            onChange={(e) => { setText(e.target.value); notifyTyping() }}
+            onKeyDown={handleKey}
+            placeholder="Message"
+            rows={1}
             style={{
-              background: 'var(--accent)',
-              color: '#fff',
-              borderRadius: '50%',
-              width: 36,
-              height: 36,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
+              flex: 1,
+              background: 'none',
+              border: 'none',
+              outline: 'none',
+              padding: '6px 4px',
+              color: 'var(--text)',
+              fontSize: 14,
+              lineHeight: 1.5,
+              maxHeight: 120,
+              overflowY: 'auto',
+              resize: 'none',
             }}
-          >
-            <Send size={16} />
-          </button>
-        ) : (
-          <button
-            onMouseDown={startRecording}
-            onMouseUp={stopRecording}
-            onTouchStart={startRecording}
-            onTouchEnd={stopRecording}
-            style={{
-              color: recording ? 'var(--danger)' : 'var(--text-2)',
-              padding: 6,
-              flexShrink: 0,
+            onInput={(e) => {
+              const el = e.currentTarget
+              el.style.height = 'auto'
+              el.style.height = Math.min(el.scrollHeight, 120) + 'px'
             }}
-          >
-            {recording ? <MicOff size={20} /> : <Mic size={20} />}
-          </button>
-        )}
+          />
+
+          {text.trim() || pendingFile || pendingImages.length > 0 ? (
+            <button
+              onClick={handleSend}
+              style={{ color: 'var(--accent)', padding: '4px 6px', flexShrink: 0, display: 'flex', alignItems: 'center' }}
+            >
+              <Send size={18} />
+            </button>
+          ) : (
+            <button
+              onClick={startRecording}
+              style={{ color: 'var(--text-3)', padding: '4px 6px', flexShrink: 0, display: 'flex', alignItems: 'center' }}
+            >
+              <Mic size={18} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
