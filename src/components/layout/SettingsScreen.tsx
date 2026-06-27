@@ -9,8 +9,11 @@ import { requestNotificationPermission } from '../../lib/notifications'
 import { Avatar } from '../ui/Avatar'
 import { ProfileModal } from './ProfileModal'
 import { StaffMenu } from './StaffMenu'
-import { ChevronRight, LogOut, ShieldAlert, User, Bell, MessageSquare, Shield, Database, Monitor, Zap, Globe, ArrowLeft, Check, Smartphone, Trash2, Loader2, LogOutIcon, Phone, AtSign, Cake, HardDrive, Activity } from 'lucide-react'
+import { ChevronRight, LogOut, ShieldAlert, User, Bell, MessageSquare, Shield, Database, Monitor, Zap, Globe, ArrowLeft, Check, Smartphone, Trash2, Loader2, LogOutIcon, Phone, AtSign, Cake, HardDrive, Activity, Info, RefreshCw } from 'lucide-react'
 import { SESSION_ID } from '../../App'
+import { APP_VERSION } from '../../lib/version'
+import { checkForUpdate } from '../../lib/updater'
+import { useUpdateStore } from '../../store/updateStore'
 
 function ls(key: string, def: string) {
   try { return localStorage.getItem(key) ?? def } catch { return def }
@@ -31,7 +34,7 @@ function shift(hex: string, amount: number) {
 const lighten = (hex: string) => shift(hex, 40)
 const darken  = (hex: string) => shift(hex, -40)
 
-type Page = 'account' | 'chat' | 'privacy' | 'notifications' | 'data' | 'devices' | 'power' | 'language' | 'staff'
+type Page = 'account' | 'chat' | 'privacy' | 'notifications' | 'data' | 'devices' | 'power' | 'language' | 'staff' | 'about'
 
 export function SettingsScreen() {
   const me = useAuthStore((s) => s.user)
@@ -40,7 +43,16 @@ export function SettingsScreen() {
   const [showStaff, setShowStaff] = useState(false)
 
   if (page) {
-    return <SettingsPage page={page} onBack={() => setPage(null)} />
+    return (
+      <div
+        style={{ height: '100%' }}
+        onTouchStart={e => e.stopPropagation()}
+        onTouchMove={e => e.stopPropagation()}
+        onTouchEnd={e => e.stopPropagation()}
+      >
+        <SettingsPage page={page} onBack={() => setPage(null)} />
+      </div>
+    )
   }
 
   return (
@@ -72,6 +84,7 @@ export function SettingsScreen() {
           <Row icon={<Monitor size={16} />}       iconBg="#6366f1" label="Devices"            desc="Linked devices"           onClick={() => setPage('devices')} />
           <Row icon={<Zap size={16} />}           iconBg="#f97316" label="Power Saving"       desc="Reduce animations"        onClick={() => setPage('power')} />
           <Row icon={<Globe size={16} />}         iconBg="#14b8a6" label="Language"           desc="English"                  onClick={() => setPage('language')} />
+          <Row icon={<Info size={16} />}          iconBg="#64748b" label="About"              desc={`Nod ${APP_VERSION}`}      onClick={() => setPage('about')} />
         </Panel>
 
         {(me?.role === 'staff' || me?.role === 'owner') && (
@@ -101,11 +114,59 @@ const PAGE_TITLES: Record<Page, string> = {
   power: 'Power Saving',
   language: 'Language',
   staff: 'Staff Menu',
+  about: 'About',
 }
 
 function SettingsPage({ page, onBack }: { page: Page; onBack: () => void }) {
+  const dragStartX = useRef(0)
+  const dragStartY = useRef(0)
+  const dragLocked = useRef<'h' | 'v' | null>(null)
+  const dragging = useRef(false)
+  const dragX = useRef(0)
+  const pageEl = useRef<HTMLDivElement>(null)
+
+  function onTouchStart(e: React.TouchEvent) {
+    dragStartX.current = e.touches[0].clientX
+    dragStartY.current = e.touches[0].clientY
+    dragLocked.current = null
+    dragging.current = true
+    dragX.current = 0
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    if (!dragging.current) return
+    const dx = e.touches[0].clientX - dragStartX.current
+    const dy = e.touches[0].clientY - dragStartY.current
+    if (!dragLocked.current) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
+      dragLocked.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+    }
+    if (dragLocked.current !== 'h' || dx < 0) return
+    dragX.current = dx
+    if (pageEl.current) pageEl.current.style.transform = `translateX(${dx}px)`
+  }
+  function onTouchEnd() {
+    if (!dragging.current || dragLocked.current !== 'h') { dragging.current = false; return }
+    dragging.current = false
+    if (dragX.current > 100) {
+      onBack()
+    } else {
+      if (pageEl.current) {
+        pageEl.current.style.transition = 'transform 0.25s cubic-bezier(0.25,1,0.5,1)'
+        pageEl.current.style.transform = 'translateX(0)'
+        setTimeout(() => { if (pageEl.current) pageEl.current.style.transition = '' }, 260)
+      }
+    }
+    dragX.current = 0
+  }
+
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
+    <div
+      ref={pageEl}
+      style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '0 8px', height: 56, borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
         <button onClick={onBack} style={{ color: 'var(--accent)', padding: 8, display: 'flex', alignItems: 'center' }}>
           <ArrowLeft size={16} />
@@ -122,7 +183,67 @@ function SettingsPage({ page, onBack }: { page: Page; onBack: () => void }) {
         {page === 'power'         && <PowerSavingPage />}
         {page === 'language'      && <LanguagePage />}
         {page === 'staff'         && <StaffMenu onClose={() => {}} inline />}
+        {page === 'about'         && <AboutPage />}
       </div>
+    </div>
+  )
+}
+
+function AboutPage() {
+  const { setUpdateInfo } = useUpdateStore()
+  const [checking, setChecking] = useState(false)
+  const [result, setResult] = useState<'found' | 'up-to-date'>()
+
+  async function handleCheck() {
+    setChecking(true)
+    setResult(undefined)
+    const info = await checkForUpdate()
+    if (info) {
+      setUpdateInfo(info)
+      setResult('found')
+    } else {
+      setResult('up-to-date')
+    }
+    setChecking(false)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '24px 16px 16px' }}>
+        <img src="/nod-logo.png" alt="Nod" style={{ width: 72, height: 72, borderRadius: 22 }} />
+        <div style={{ fontWeight: 700, fontSize: 22 }}>Nod</div>
+        <div style={{ fontSize: 13, color: 'var(--text-3)' }}>{APP_VERSION}</div>
+      </div>
+
+      <Panel>
+        <InfoRow label="Version"   value={APP_VERSION} />
+        <FieldDivider />
+        <InfoRow label="Platform"  value="Android" />
+        <FieldDivider />
+        <InfoRow label="Developer" value="slimeryt" />
+      </Panel>
+
+      <Panel>
+        <button
+          onClick={handleCheck}
+          disabled={checking}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '13px 16px' }}
+        >
+          <RefreshCw size={16} color="var(--accent)" style={{ flexShrink: 0, animation: checking ? 'spin 1s linear infinite' : 'none' }} />
+          <span style={{ fontSize: 15, color: 'var(--text)', flex: 1, textAlign: 'left' }}>
+            {checking ? 'Checking…' : 'Check for Updates'}
+          </span>
+          {result === 'up-to-date' && <span style={{ fontSize: 12, color: '#22c55e' }}>Up to date</span>}
+          {result === 'found' && <span style={{ fontSize: 12, color: 'var(--accent)' }}>Update found!</span>}
+        </button>
+      </Panel>
+
+      <Panel>
+        <div style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-3)', lineHeight: 1.6, textAlign: 'center' }}>
+          Nod is a fast, minimal messenger built for real conversations.
+        </div>
+      </Panel>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }

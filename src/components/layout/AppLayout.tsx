@@ -37,6 +37,9 @@ export function AppLayout() {
 
   // Swipe right-from-edge to go back from chat, with drag effect
   const dragX = useRef(0)
+  const dragStartX = useRef(0)
+  const dragStartY = useRef(0)
+  const dragLocked = useRef<'h' | 'v' | null>(null)
   const dragEl = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
 
@@ -108,18 +111,27 @@ export function AppLayout() {
   }
 
   function onChatTouchStart(e: React.TouchEvent) {
-    if (e.touches[0].clientX > 32) return
+    if (e.touches[0].clientX > 80) return
+    dragStartX.current = e.touches[0].clientX
+    dragStartY.current = e.touches[0].clientY
+    dragLocked.current = null
     dragging.current = true
     dragX.current = 0
   }
   function onChatTouchMove(e: React.TouchEvent) {
     if (!dragging.current) return
-    const dx = Math.max(0, e.touches[0].clientX - 16)
+    const dx = e.touches[0].clientX - dragStartX.current
+    const dy = e.touches[0].clientY - dragStartY.current
+    if (!dragLocked.current) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
+      dragLocked.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+    }
+    if (dragLocked.current !== 'h' || dx < 0) return
     dragX.current = dx
     if (dragEl.current) dragEl.current.style.transform = `translateX(${dx}px)`
   }
   function onChatTouchEnd() {
-    if (!dragging.current) return
+    if (!dragging.current || dragLocked.current !== 'h') { dragging.current = false; return }
     dragging.current = false
     if (dragX.current > 100) {
       setActiveChatId(null)

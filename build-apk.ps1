@@ -27,7 +27,7 @@ Copy-Item $apkSrc $apkDest -Force
 if ($Release) {
     Write-Host "Creating GitHub release $Release..." -ForegroundColor Yellow
     Set-Location $root
-    $notes = '{"type":"minor","force":false,"notes":"What\'s new in Nod","changelog":["Update modal now shows changelogs","Tab swipe shows adjacent page while dragging","New version system with typed update badges"],"counters":{"major":1,"minor":0,"ui":3,"bugfixMajor":0,"bugfixMinor":5}}'
+    $notes = '{"type":"bugfix-minor","force":false,"notes":"Bug fixes","changelog":["Chat input clears Android navigation buttons","About page with version and update check","App icon updated to Nod logo"],"counters":{"major":1,"minor":0,"ui":4,"bugfixMajor":0,"bugfixMinor":7}}'
     $notesFile = [System.IO.Path]::GetTempFileName()
     [System.IO.File]::WriteAllText($notesFile, $notes, (New-Object System.Text.UTF8Encoding $false))
     try { gh release delete $Release --repo slimeryt/messenger-app --yes 2>$null } catch {}

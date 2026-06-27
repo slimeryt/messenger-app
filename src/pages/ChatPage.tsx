@@ -114,7 +114,7 @@ function DemoChatPage({ onBack }: { onBack?: () => void }) {
         <div ref={bottomRef} />
       </div>
 
-      <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border)', paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px) + var(--nav-bar-extra))', display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ flex: 1, background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: 20, padding: '9px 14px', fontSize: 14, color: 'var(--text-3)' }}>
           Message Alex…
         </div>

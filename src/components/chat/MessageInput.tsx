@@ -22,6 +22,8 @@ interface Props {
   readOnly?: boolean
 }
 
+const bottomSafe = { paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--nav-bar-extra))' } as const
+
 export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props) {
   const [text, setText] = useState('')
   const [recording, setRecording] = useState(false)
@@ -51,7 +53,7 @@ export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props
 
   if (readOnly) {
     return (
-      <div style={{ padding: '12px 16px', color: 'var(--text-3)', fontSize: 13, textAlign: 'center', borderTop: '1px solid var(--border)' }}>
+      <div style={{ padding: '12px 16px', ...bottomSafe, color: 'var(--text-3)', fontSize: 13, textAlign: 'center', borderTop: '1px solid var(--border)' }}>
         You can't send messages here
       </div>
     )
@@ -183,7 +185,7 @@ export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props
 
   if (recording) {
     return (
-      <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)', padding: '10px 14px', ...bottomSafe, display: 'flex', alignItems: 'center', gap: 12 }}>
         {/* Cancel */}
         <button onClick={cancelRecording} style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--bg-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', flexShrink: 0 }}>
           <Trash2 size={17} />
@@ -209,7 +211,7 @@ export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props
   }
 
   return (
-    <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
+    <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)', ...bottomSafe }}>
       {pendingImages.length > 0 && (
         <div style={{ display: 'flex', gap: 6, padding: '8px 14px', borderBottom: '1px solid var(--border)', overflowX: 'auto' }}>
           {pendingImages.map((img, i) => (

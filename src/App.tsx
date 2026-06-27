@@ -3,12 +3,13 @@ import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import { useAuthStore } from './store/authStore'
+import { useUpdateStore } from './store/updateStore'
 import { User } from './types'
 import { AuthPage } from './pages/AuthPage'
 import { AppLayout } from './components/layout/AppLayout'
 import { UpdateModal } from './components/UpdateModal'
 import { checkForUpdate } from './lib/updater'
-import { UpdateInfo } from './types'
+import { initSafeAreaInsets } from './lib/safeArea'
 import { firebaseConfigured } from './firebase'
 import { LangProvider } from './contexts/LangContext'
 import { PushNotifications } from '@capacitor/push-notifications'
@@ -31,11 +32,13 @@ function applyStoredSettings() {
 
 export default function App() {
   const { user, ready, setUser, setReady } = useAuthStore()
-  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const { updateInfo, setUpdateInfo } = useUpdateStore()
   const [updateDismissed, setUpdateDismissed] = useState(false)
   const [downloading, setDownloading] = useState(false)
 
   useEffect(() => { applyStoredSettings() }, [])
+
+  useEffect(() => initSafeAreaInsets(), [])
 
   useEffect(() => {
     async function requestPermissions() {
