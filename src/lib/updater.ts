@@ -26,7 +26,7 @@ export async function checkForUpdate(): Promise<UpdateInfo | null> {
       notes?: string
       counters?: VersionCounters
     } = {}
-    try { meta = JSON.parse(data.body ?? '{}') } catch {}
+    try { meta = JSON.parse((data.body ?? '{}').replace(/^﻿/, '')) } catch {}
 
     if (!meta.counters) return null
     if (!isNewer(meta.counters, VERSION)) return null

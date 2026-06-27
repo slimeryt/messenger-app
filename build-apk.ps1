@@ -28,8 +28,11 @@ if ($Release) {
     Write-Host "Creating GitHub release $Release..." -ForegroundColor Yellow
     Set-Location $root
     $notes = '{"type":"bugfix-minor","force":false,"notes":"Tab swipe now shows adjacent page","counters":{"major":1,"minor":0,"ui":3,"bugfixMajor":0,"bugfixMinor":4}}'
+    $notesFile = [System.IO.Path]::GetTempFileName()
+    [System.IO.File]::WriteAllText($notesFile, $notes, (New-Object System.Text.UTF8Encoding $false))
     try { gh release delete $Release --repo slimeryt/messenger-app --yes 2>$null } catch {}
-    gh release create $Release "$apkSrc#Nod.apk" --repo slimeryt/messenger-app --title $Release --notes $notes
+    gh release create $Release "$apkSrc#Nod.apk" --repo slimeryt/messenger-app --title $Release --notes-file $notesFile
+    Remove-Item $notesFile -Force
     Write-Host "Release $Release published!" -ForegroundColor Green
     $downloadUrl = "https://github.com/slimeryt/messenger-app/releases/download/$Release/Nod.apk"
     Write-Host "Sending to Discord..." -ForegroundColor Yellow
