@@ -10,8 +10,8 @@ export const VERSION: VersionCounters = {
   major: 1,
   minor: 0,
   ui: 4,
-  bugfixMajor: 0,
-  bugfixMinor: 7,
+  bugfixMajor: 1,
+  bugfixMinor: 0,
 }
 
 export const APP_VERSION =

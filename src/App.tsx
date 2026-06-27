@@ -10,6 +10,7 @@ import { AppLayout } from './components/layout/AppLayout'
 import { UpdateModal } from './components/UpdateModal'
 import { checkForUpdate } from './lib/updater'
 import { initSafeAreaInsets } from './lib/safeArea'
+import { useChatSync } from './hooks/useChatSync'
 import { firebaseConfigured } from './firebase'
 import { LangProvider } from './contexts/LangContext'
 import { PushNotifications } from '@capacitor/push-notifications'
@@ -35,6 +36,8 @@ export default function App() {
   const { updateInfo, setUpdateInfo } = useUpdateStore()
   const [updateDismissed, setUpdateDismissed] = useState(false)
   const [downloading, setDownloading] = useState(false)
+
+  useChatSync()
 
   useEffect(() => { applyStoredSettings() }, [])
 

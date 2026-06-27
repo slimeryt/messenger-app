@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { collection, query, where, onSnapshot, orderBy, addDoc } from 'firebase/firestore'
+import { useState } from 'react'
+import { addDoc, collection } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useChatStore } from '../../store/chatStore'
 import { useAuthStore } from '../../store/authStore'
@@ -7,48 +7,12 @@ import { Chat } from '../../types'
 import { Avatar } from '../ui/Avatar'
 import { Search, Edit, BookmarkCheck } from 'lucide-react'
 import { NewChatModal } from './NewChatModal'
-import { sendNotification, getNotificationPermission } from '../../lib/notifications'
 
 export function ChatListScreen() {
-  const { chats, setChats, setActiveChatId } = useChatStore()
+  const { chats, setActiveChatId } = useChatStore()
   const me = useAuthStore((s) => s.user)
   const [search, setSearch] = useState('')
   const [showNew, setShowNew] = useState(false)
-
-  const prevTimesRef = useRef<Record<string, number>>({})
-  const initialLoadRef = useRef(true)
-
-  useEffect(() => {
-    if (!me) return
-    const q = query(
-      collection(db, 'chats'),
-      where('memberIds', 'array-contains', me.uid),
-      orderBy('lastMessageTime', 'desc')
-    )
-    const unsub = onSnapshot(q, async (snap) => {
-      const updated = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Chat))
-      if (!initialLoadRef.current) {
-        const notifEnabled = localStorage.getItem('nod_notif') !== 'false'
-        const notifSound = localStorage.getItem('nod_notifSound') !== 'false'
-        if (notifEnabled) {
-          const perm = await getNotificationPermission()
-          if (perm === 'granted') {
-            const notifVibrate = localStorage.getItem('nod_notifVibrate') !== 'false'
-            for (const chat of updated) {
-              const prev = prevTimesRef.current[chat.id] ?? 0
-              if (chat.lastMessageTime > prev && chat.lastMessage) {
-                sendNotification(chat.name, chat.lastMessage, !notifSound, notifVibrate)
-              }
-            }
-          }
-        }
-      }
-      prevTimesRef.current = Object.fromEntries(updated.map((c) => [c.id, c.lastMessageTime]))
-      initialLoadRef.current = false
-      setChats(updated)
-    })
-    return unsub
-  }, [me?.uid])
 
   async function openSavedMessages() {
     if (!me) return

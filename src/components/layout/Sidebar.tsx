@@ -1,10 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   collection,
-  query,
-  where,
-  onSnapshot,
-  orderBy,
   getDocs,
   addDoc,
   doc,
@@ -30,26 +26,12 @@ import { ProfileModal } from './ProfileModal'
 import { StaffMenu } from './StaffMenu'
 
 export function Sidebar() {
-  const { chats, setChats, activeChatId, setActiveChatId } = useChatStore()
+  const { chats, activeChatId, setActiveChatId } = useChatStore()
   const me = useAuthStore((s) => s.user)
   const [search, setSearch] = useState('')
   const [showNew, setShowNew] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [showStaff, setShowStaff] = useState(false)
-
-  useEffect(() => {
-    if (!me) return
-    const q = query(
-      collection(db, 'chats'),
-      where('memberIds', 'array-contains', me.uid),
-      orderBy('lastMessageTime', 'desc')
-    )
-    const unsub = onSnapshot(q, (snap) => {
-      const list: Chat[] = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Chat))
-      setChats(list)
-    })
-    return unsub
-  }, [me?.uid])
 
   async function openSavedMessages() {
     if (!me) return
