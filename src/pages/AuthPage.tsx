@@ -2,10 +2,6 @@ import { useState, useRef, useEffect } from 'react'
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  ConfirmationResult,
-  signOut,
 } from 'firebase/auth'
 import {
   doc,
@@ -280,15 +276,11 @@ async function generateUniqueTag(username: string): Promise<string> {
 
 export function AuthPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
-  const [step, setStep] = useState<'form' | 'otp'>('form')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
-  const [otpCode, setOtpCode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const confirmRef = useRef<ConfirmationResult | null>(null)
-  const recaptchaRef = useRef<RecaptchaVerifier | null>(null)
 
   function phoneToEmail(p: string) {
     return `${p.replace(/\D/g, '')}@nod.app`
@@ -302,78 +294,35 @@ export function AuthPage() {
     if (!rawPhone) { setError('Phone number is required'); return }
     if (rawPhone.replace(/\D/g, '').length < 7) { setError('Enter a valid phone number'); return }
 
-    if (mode === 'login') {
-      setLoading(true)
-      try {
+    setLoading(true)
+    try {
+      if (mode === 'register') {
+        if (!username.trim()) { setError('Username is required'); setLoading(false); return }
+        const cred = await createUserWithEmailAndPassword(auth, phoneToEmail(rawPhone), password)
+        const tag = await generateUniqueTag(username.trim())
+        await setDoc(doc(db, 'users', cred.user.uid), {
+          uid: cred.user.uid,
+          username: username.trim(),
+          tag,
+          phone: rawPhone,
+          email: phoneToEmail(rawPhone),
+          avatarUrl: null,
+          bannerUrl: null,
+          bio: '',
+          lastSeen: Date.now(),
+          createdAt: Date.now(),
+          online: true,
+          role: 'user',
+          banned: false,
+        })
+      } else {
         await signInWithEmailAndPassword(auth, phoneToEmail(rawPhone), password)
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Something went wrong'
-        setError(msg.replace('Firebase: ', '').replace(/\(auth\/.*?\)\.?/, '').trim())
       }
-      setLoading(false)
-      return
-    }
-
-    // Register: send OTP first
-    if (!username.trim()) { setError('Username is required'); return }
-    setLoading(true)
-    try {
-      if (!recaptchaRef.current) {
-        recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' })
-      }
-      const result = await signInWithPhoneNumber(auth, rawPhone, recaptchaRef.current)
-      confirmRef.current = result
-      setStep('otp')
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Something went wrong'
-      setError(msg.replace('Firebase: ', '').replace(/\(auth\/.*?\)\.?/, '').trim())
-      recaptchaRef.current?.clear()
-      recaptchaRef.current = null
-    }
-    setLoading(false)
-  }
-
-  async function handleVerifyOtp(e: React.FormEvent) {
-    e.preventDefault()
-    if (!confirmRef.current) return
-    setError('')
-    setLoading(true)
-    try {
-      // Confirm OTP (signs in via phone auth)
-      await confirmRef.current.confirm(otpCode)
-      // Sign out phone auth session — we'll use email/password instead
-      await signOut(auth)
-      const rawPhone = phone.trim().replace(/\s/g, '')
-      const email = phoneToEmail(rawPhone)
-      const cred = await createUserWithEmailAndPassword(auth, email, password)
-      const tag = await generateUniqueTag(username.trim())
-      await setDoc(doc(db, 'users', cred.user.uid), {
-        uid: cred.user.uid,
-        username: username.trim(),
-        tag,
-        phone: rawPhone,
-        email,
-        avatarUrl: null,
-        bannerUrl: null,
-        bio: '',
-        lastSeen: Date.now(),
-        createdAt: Date.now(),
-        online: true,
-        role: 'user',
-        banned: false,
-      })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Something went wrong'
       setError(msg.replace('Firebase: ', '').replace(/\(auth\/.*?\)\.?/, '').trim())
     }
     setLoading(false)
-  }
-
-  function switchMode() {
-    setMode(mode === 'login' ? 'register' : 'login')
-    setStep('form')
-    setError('')
-    setOtpCode('')
   }
 
   return (
@@ -383,50 +332,11 @@ export function AuthPage() {
         <div style={{ marginBottom: 32, textAlign: 'center' }}>
           <div style={{ fontSize: 28, fontWeight: 700, marginBottom: 6 }}>Nod</div>
           <div style={{ color: 'var(--text-2)', fontSize: 14 }}>
-            {step === 'otp'
-              ? `Enter the code sent to ${phone}`
-              : mode === 'login' ? 'Sign in to continue' : 'Create your account'}
+            {mode === 'login' ? 'Sign in to continue' : 'Create your account'}
           </div>
         </div>
 
-        {step === 'otp' ? (
-          <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-2)', marginBottom: 6 }}>Verification Code</div>
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="_ _ _ _ _ _"
-                maxLength={6}
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                style={{
-                  width: '100%', padding: '12px 16px', textAlign: 'center',
-                  letterSpacing: '0.4em', fontSize: 22, fontWeight: 600,
-                  background: 'var(--bg-3)', border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius)', color: 'var(--text)', outline: 'none',
-                }}
-                autoFocus
-              />
-            </div>
-
-            {error && <div style={{ fontSize: 13, color: 'var(--danger)' }}>{error}</div>}
-
-            <Button type="submit" fullWidth disabled={loading || otpCode.length < 6} style={{ marginTop: 4 }}>
-              {loading ? 'Verifying…' : 'Verify & Create Account'}
-            </Button>
-
-            <button
-              type="button"
-              onClick={() => { setStep('form'); setError(''); setOtpCode('') }}
-              style={{ fontSize: 13, color: 'var(--text-2)', textAlign: 'center', marginTop: 4 }}
-            >
-              ← Change phone number
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {mode === 'register' && (
               <Input
                 label="Username"
@@ -449,24 +359,16 @@ export function AuthPage() {
             {error && <div style={{ fontSize: 13, color: 'var(--danger)', padding: '8px 0' }}>{error}</div>}
 
             <Button type="submit" fullWidth disabled={loading} style={{ marginTop: 4 }}>
-              {loading
-                ? 'Please wait…'
-                : mode === 'login' ? 'Sign In' : 'Send Verification Code'}
+              {loading ? 'Please wait…' : mode === 'login' ? 'Sign In' : 'Create Account'}
             </Button>
           </form>
-        )}
 
-        {/* Invisible reCAPTCHA mount point */}
-        <div id="recaptcha-container" />
-
-        {step === 'form' && (
           <div style={{ textAlign: 'center', marginTop: 20, color: 'var(--text-2)', fontSize: 13 }}>
             {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-            <button onClick={switchMode} style={{ color: 'var(--accent)', fontWeight: 500 }}>
+            <button onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError('') }} style={{ color: 'var(--accent)', fontWeight: 500 }}>
               {mode === 'login' ? 'Sign up' : 'Sign in'}
             </button>
           </div>
-        )}
       </div>
     </div>
   )
