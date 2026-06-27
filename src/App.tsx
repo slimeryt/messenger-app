@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { onAuthStateChanged } from 'firebase/auth'
+import { useEffect, useRef, useState } from 'react'
+import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import { useAuthStore } from './store/authStore'
@@ -9,12 +9,26 @@ import { AppLayout } from './components/layout/AppLayout'
 import { UpdateModal } from './components/UpdateModal'
 import { checkForUpdate } from './lib/updater'
 import { UpdateInfo } from './types'
+import { firebaseConfigured } from './firebase'
+import { LangProvider } from './contexts/LangContext'
+
+export const SESSION_ID = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+function applyStoredSettings() {
+  const msgSize = localStorage.getItem('nod_msgFontSize') ?? '14'
+  document.documentElement.style.setProperty('--msg-font-size', `${msgSize}px`)
+
+  const reduceAnim = localStorage.getItem('nod_reduceAnim') === 'true'
+  document.body.classList.toggle('reduce-motion', reduceAnim)
+}
 
 export default function App() {
   const { user, ready, setUser, setReady } = useAuthStore()
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [updateDismissed, setUpdateDismissed] = useState(false)
   const [downloading, setDownloading] = useState(false)
+
+  useEffect(() => { applyStoredSettings() }, [])
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -26,6 +40,12 @@ export default function App() {
       const userUnsub = onSnapshot(doc(db, 'users', firebaseUser.uid), (snap) => {
         if (snap.exists()) {
           const u = { uid: snap.id, ...snap.data() } as User
+          // Sign out if another session triggered "terminate all"
+          const terminateExcept = snap.data().terminateExcept as string | undefined
+          if (terminateExcept && terminateExcept !== SESSION_ID) {
+            signOut(auth)
+            return
+          }
           setUser(u)
         }
         setReady(true)
@@ -55,9 +75,20 @@ export default function App() {
     setDownloading(false)
   }
 
+  if (!firebaseConfigured) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24, background: 'var(--bg)' }}>
+        <div style={{ fontSize: 20, fontWeight: 700 }}>Firebase not configured</div>
+        <div style={{ color: 'var(--text-2)', fontSize: 13, textAlign: 'center', maxWidth: 340, lineHeight: 1.6 }}>
+          Copy <code style={{ background: 'var(--bg-3)', padding: '2px 6px', borderRadius: 4 }}>.env.example</code> to <code style={{ background: 'var(--bg-3)', padding: '2px 6px', borderRadius: 4 }}>.env</code> and fill in your Firebase project credentials, then restart the dev server.
+        </div>
+      </div>
+    )
+  }
+
   if (!ready) {
     return (
-      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', fontSize: 13 }}>
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', fontSize: 13, background: 'var(--bg)' }}>
         Loading…
       </div>
     )
@@ -66,7 +97,7 @@ export default function App() {
   const showUpdate = updateInfo && (updateInfo.force || !updateDismissed)
 
   return (
-    <>
+    <LangProvider>
       {!user ? <AuthPage /> : <AppLayout />}
       {showUpdate && (
         <UpdateModal
@@ -75,6 +106,6 @@ export default function App() {
           onLater={updateInfo?.force ? undefined : () => setUpdateDismissed(true)}
         />
       )}
-    </>
+    </LangProvider>
   )
 }

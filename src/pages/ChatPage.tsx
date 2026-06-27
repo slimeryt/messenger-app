@@ -19,7 +19,9 @@ import { TypingIndicator } from '../components/chat/TypingIndicator'
 import { CallModal } from '../components/call/CallModal'
 import { PinnedModal } from '../components/chat/PinnedModal'
 
-export function ChatPage() {
+interface ChatPageProps { onBack?: () => void }
+
+export function ChatPage({ onBack }: ChatPageProps) {
   const chatId = useChatStore((s) => s.activeChatId)
   const [chat, setChat] = useState<Chat | null>(null)
   const [members, setMembers] = useState<Record<string, User>>({})
@@ -98,6 +100,7 @@ export function ChatPage() {
       <ChatHeader
         chat={chat}
         memberCount={chat.memberIds.length}
+        onBack={onBack}
         onCall={(t) => setCallType(t)}
         onShowPinned={() => setShowPinned(true)}
         onShowMenu={() => {}}

@@ -86,7 +86,7 @@ export function MessageList({ chatId, members, onReply }: Props) {
           </div>
           {g.msgs.map((msg) => {
             const sender = members[msg.senderId]
-              ? { ...members[msg.senderId], uid: msg.senderId, email: '', bio: '', lastSeen: 0, online: false, role: 'user' as const, banned: false, bannerUrl: null }
+              ? { ...members[msg.senderId], uid: msg.senderId, email: '', bio: '', phone: '', createdAt: 0, lastSeen: 0, online: false, role: 'user' as const, banned: false, bannerUrl: null }
               : null
             return (
               <MessageItem

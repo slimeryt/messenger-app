@@ -8,8 +8,8 @@ import {
   deleteDoc,
   updateDoc,
 } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db, storage } from '../../firebase'
+import { db } from '../../firebase'
+import { compressImage, fileToBase64 } from '../../lib/toBase64'
 import { useAuthStore } from '../../store/authStore'
 import { Message } from '../../types'
 import { Send, Paperclip, Mic, MicOff, X } from 'lucide-react'
@@ -81,11 +81,9 @@ export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props
     const file = e.target.files?.[0]
     if (!file || !me) return
     setUploading(true)
-    const path = `chats/${chatId}/${Date.now()}_${file.name}`
-    const snap = await uploadBytes(ref(storage, path), file)
-    const url = await getDownloadURL(snap.ref)
     const isImage = file.type.startsWith('image/')
-    await sendMessage(file.name, isImage ? 'image' : 'file', url, {
+    const data = isImage ? await compressImage(file) : await fileToBase64(file)
+    await sendMessage(file.name, isImage ? 'image' : 'file', data, {
       name: file.name,
       size: file.size,
       mime: file.type,
@@ -102,10 +100,11 @@ export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props
     mr.onstop = async () => {
       stream.getTracks().forEach((t) => t.stop())
       const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
-      const path = `chats/${chatId}/voice_${Date.now()}.webm`
-      const snap = await uploadBytes(ref(storage, path), blob)
-      const url = await getDownloadURL(snap.ref)
-      await sendMessage('Voice message', 'audio', url)
+      const reader = new FileReader()
+      reader.onload = async () => {
+        await sendMessage('Voice message', 'audio', reader.result as string)
+      }
+      reader.readAsDataURL(blob)
     }
     mr.start()
     mediaRef.current = mr
@@ -134,7 +133,8 @@ export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props
   }
 
   function handleKey(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    const enterSend = localStorage.getItem('nod_enterSend') !== 'false'
+    if (e.key === 'Enter' && !e.shiftKey && enterSend) {
       e.preventDefault()
       handleSend()
     }

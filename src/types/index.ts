@@ -2,14 +2,21 @@ export interface User {
   uid: string
   username: string
   tag: string // 4-digit discriminator e.g. "0042"
+  firstName?: string
+  lastName?: string
+  phone: string
   email: string
+  birthday?: string
   avatarUrl: string | null
   bannerUrl: string | null
   bio: string
   lastSeen: number
+  createdAt: number
   online: boolean
   role: 'user' | 'staff' | 'owner'
   banned: boolean
+  blockedUsers?: string[]
+  lastSeenVisibility?: 'everyone' | 'contacts' | 'nobody'
 }
 
 export type ChatType = 'dm' | 'group' | 'channel'

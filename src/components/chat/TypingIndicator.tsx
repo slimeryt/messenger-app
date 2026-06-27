@@ -8,6 +8,7 @@ export function TypingIndicator({ chatId }: Props) {
   const me = useAuthStore((s) => s.user?.uid)
   const others = Object.entries(typing).filter(([uid]) => uid !== me)
   if (others.length === 0) return null
+  if (localStorage.getItem('nod_showTyping') === 'false') return null
 
   const names = others.map(([, name]) => name)
   const label =

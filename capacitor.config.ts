@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'com.messengerapp',
-  appName: 'Messenger',
+  appId: 'com.nodapp',
+  appName: 'Nod',
   webDir: 'dist',
   server: {
     androidScheme: 'https',

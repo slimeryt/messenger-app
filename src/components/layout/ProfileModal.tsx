@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { doc, updateDoc } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db, storage } from '../../firebase'
+import { db } from '../../firebase'
+import { compressAvatar, compressBanner } from '../../lib/toBase64'
 import { useAuthStore } from '../../store/authStore'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
@@ -17,18 +17,13 @@ export function ProfileModal({ onClose }: Props) {
   const avatarRef = useRef<HTMLInputElement>(null)
   const bannerRef = useRef<HTMLInputElement>(null)
 
-  async function uploadImage(file: File, path: string): Promise<string> {
-    const snap = await uploadBytes(ref(storage, path), file)
-    return getDownloadURL(snap.ref)
-  }
-
   async function handleAvatar(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !user) return
     setSaving(true)
-    const url = await uploadImage(file, `avatars/${user.uid}`)
-    await updateDoc(doc(db, 'users', user.uid), { avatarUrl: url })
-    setUser({ ...user, avatarUrl: url })
+    const data = await compressAvatar(file)
+    await updateDoc(doc(db, 'users', user.uid), { avatarUrl: data })
+    setUser({ ...user, avatarUrl: data })
     setSaving(false)
   }
 
@@ -36,9 +31,9 @@ export function ProfileModal({ onClose }: Props) {
     const file = e.target.files?.[0]
     if (!file || !user) return
     setSaving(true)
-    const url = await uploadImage(file, `banners/${user.uid}`)
-    await updateDoc(doc(db, 'users', user.uid), { bannerUrl: url })
-    setUser({ ...user, bannerUrl: url })
+    const data = await compressBanner(file)
+    await updateDoc(doc(db, 'users', user.uid), { bannerUrl: data })
+    setUser({ ...user, bannerUrl: data })
     setSaving(false)
   }
 

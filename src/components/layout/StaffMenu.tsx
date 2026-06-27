@@ -7,7 +7,7 @@ import { Button } from '../ui/Button'
 import { Avatar } from '../ui/Avatar'
 import { ShieldAlert, Ban } from 'lucide-react'
 
-interface Props { onClose: () => void }
+interface Props { onClose: () => void; inline?: boolean }
 
 export function StaffMenu({ onClose }: Props) {
   const [users, setUsers] = useState<User[]>([])
