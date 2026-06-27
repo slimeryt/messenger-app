@@ -46,12 +46,25 @@ export function AppLayout() {
   const tabDragStartY = useRef(0)
   const tabDragging = useRef(false)
   const tabLocked = useRef<'h' | 'v' | null>(null)
+  const tabDragStartIdx = useRef(0)
+
+  function switchTab(newTab: Tab) {
+    const newIdx = TAB_IDS.indexOf(newTab)
+    const el = tabContentRef.current
+    if (el) {
+      el.style.transition = 'transform 0.3s cubic-bezier(0.25,1,0.5,1)'
+      el.style.transform = `translateX(-${newIdx * 25}%)`
+      setTimeout(() => { el.style.transition = '' }, 310)
+    }
+    setTab(newTab)
+  }
 
   function onTabTouchStart(e: React.TouchEvent) {
     tabDragStartX.current = e.touches[0].clientX
     tabDragStartY.current = e.touches[0].clientY
     tabDragging.current = true
     tabLocked.current = null
+    tabDragStartIdx.current = TAB_IDS.indexOf(tab)
   }
 
   function onTabTouchMove(e: React.TouchEvent) {
@@ -62,8 +75,12 @@ export function AppLayout() {
       tabLocked.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
     }
     if (tabLocked.current !== 'h') return
+    const idx = tabDragStartIdx.current
+    let clampedDx = dx
+    if (idx === 0 && dx > 0) clampedDx = dx * 0.25
+    if (idx === TAB_IDS.length - 1 && dx < 0) clampedDx = dx * 0.25
     if (tabContentRef.current) {
-      tabContentRef.current.style.transform = `translateX(${dx}px)`
+      tabContentRef.current.style.transform = `translateX(calc(-${idx * 25}% + ${clampedDx}px))`
     }
   }
 
@@ -73,23 +90,19 @@ export function AppLayout() {
     const dx = e.changedTouches[0].clientX - tabDragStartX.current
     const el = tabContentRef.current
     if (!el) return
-    const w = window.innerWidth
+    const startIdx = tabDragStartIdx.current
     if (Math.abs(dx) > 60) {
       const dir = dx < 0 ? 1 : -1
-      el.style.transition = 'transform 0.2s ease'
-      el.style.transform = `translateX(${dir < 0 ? w : -w}px)`
+      const nextIdx = Math.max(0, Math.min(TAB_IDS.length - 1, startIdx + dir))
+      el.style.transition = 'transform 0.25s cubic-bezier(0.25,1,0.5,1)'
+      el.style.transform = `translateX(-${nextIdx * 25}%)`
       setTimeout(() => {
-        el.style.transition = 'none'
-        el.style.transform = 'translateX(0)'
-        setTab((prev) => {
-          const i = TAB_IDS.indexOf(prev)
-          const next = i + dir
-          return next >= 0 && next < TAB_IDS.length ? TAB_IDS[next] : prev
-        })
-      }, 200)
+        el.style.transition = ''
+        setTab(TAB_IDS[nextIdx])
+      }, 250)
     } else {
       el.style.transition = 'transform 0.3s cubic-bezier(0.25,1,0.5,1)'
-      el.style.transform = 'translateX(0)'
+      el.style.transform = `translateX(-${startIdx * 25}%)`
       setTimeout(() => { el.style.transition = '' }, 310)
     }
   }
@@ -137,16 +150,24 @@ export function AppLayout() {
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)', position: 'relative', paddingTop: 'env(safe-area-inset-top)' }}>
       <div
-        ref={tabContentRef}
         onTouchStart={onTabTouchStart}
         onTouchMove={onTabTouchMove}
         onTouchEnd={onTabTouchEnd}
-        style={{ flex: 1, overflow: 'hidden', paddingBottom: 80 }}
+        style={{ flex: 1, overflow: 'hidden', position: 'relative' }}
       >
-        {tab === 'chats' && <ChatListScreen />}
-        {tab === 'contacts' && <ContactsScreen />}
-        {tab === 'settings' && <SettingsScreen />}
-        {tab === 'profile' && <ProfileScreen />}
+        <div
+          ref={tabContentRef}
+          style={{ display: 'flex', width: `${TAB_IDS.length * 100}%`, height: '100%' }}
+        >
+          {TAB_IDS.map((t) => (
+            <div key={t} style={{ width: `${100 / TAB_IDS.length}%`, height: '100%', flexShrink: 0, overflow: 'hidden', paddingBottom: 80 }}>
+              {t === 'chats' && <ChatListScreen />}
+              {t === 'contacts' && <ContactsScreen />}
+              {t === 'settings' && <SettingsScreen />}
+              {t === 'profile' && <ProfileScreen />}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Floating pill navbar */}
@@ -200,7 +221,7 @@ export function AppLayout() {
             <button
               key={item.id}
               ref={(el) => { btnRefs.current[idx] = el }}
-              onClick={() => setTab(item.id)}
+              onClick={() => switchTab(item.id)}
               style={{
                 position: 'relative',
                 display: 'flex',
