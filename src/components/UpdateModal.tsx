@@ -75,12 +75,22 @@ export function UpdateModal({ info, downloading, onUpdate, onLater }: Props) {
         </div>
 
         <div>
-          <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 6 }}>
+          <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 4 }}>
             Nod {info.version}
           </div>
           {info.notes && (
-            <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>
+            <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6, marginBottom: info.changelog.length ? 10 : 0 }}>
               {info.notes}
+            </div>
+          )}
+          {info.changelog.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {info.changelog.map((item, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                  <span style={{ color: 'var(--accent)', marginTop: 1, flexShrink: 0 }}>•</span>
+                  <span>{item}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>

@@ -64,5 +64,6 @@ export interface UpdateInfo {
   type: UpdateType
   force: boolean
   notes: string
+  changelog: string[]
   downloadUrl: string
 }

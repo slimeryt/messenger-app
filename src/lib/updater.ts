@@ -24,6 +24,7 @@ export async function checkForUpdate(): Promise<UpdateInfo | null> {
       type?: string
       force?: boolean
       notes?: string
+      changelog?: string[]
       counters?: VersionCounters
     } = {}
     try { meta = JSON.parse((data.body ?? '{}').replace(/^﻿/, '')) } catch {}
@@ -48,6 +49,7 @@ export async function checkForUpdate(): Promise<UpdateInfo | null> {
       type,
       force,
       notes: meta.notes ?? data.name ?? '',
+      changelog: meta.changelog ?? [],
       downloadUrl: apkAsset.browser_download_url,
     }
   } catch {
