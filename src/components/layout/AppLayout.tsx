@@ -8,7 +8,7 @@ import { ProfileScreen } from './ProfileScreen'
 import { useChatStore } from '../../store/chatStore'
 import { useAuthStore } from '../../store/authStore'
 import { useLang } from '../../contexts/LangContext'
-import { buildDmChatFields, parseChat } from '../../lib/chats'
+import { buildDmChatFields, isListedChat, parseChat } from '../../lib/chats'
 import { Avatar } from '../ui/Avatar'
 import { MessageSquare, Settings, Users, Search, UserPlus, Phone, ChevronRight } from 'lucide-react'
 import { User } from '../../types'
@@ -275,7 +275,7 @@ function ContactsScreen() {
   useEffect(() => {
     if (!me) return
     // Only show users you have a DM with
-    const dmChats = chats.filter((c) => c.type === 'dm' && c.memberIds.length === 2)
+    const dmChats = chats.filter((c) => c.type === 'dm' && c.memberIds.length === 2 && isListedChat(c))
     const otherUids = [...new Set(dmChats.flatMap((c) => c.memberIds).filter((uid) => uid !== me.uid))]
     if (otherUids.length === 0) { setContacts([]); setLoading(false); return }
     Promise.all(otherUids.map((uid) => getDocs(query(collection(db, 'users'), where('__name__', '==', uid)))))
@@ -296,12 +296,12 @@ function ContactsScreen() {
     let chatId: string
     if (!snap.empty) {
       chatId = snap.docs[0].id
-      upsertChat(parseChat(chatId, snap.docs[0].data()))
+      const chat = parseChat(chatId, snap.docs[0].data())
+      if (isListedChat(chat)) upsertChat(chat)
     } else {
       const fields = buildDmChatFields(me, user)
       const ref = await addDoc(collection(db, 'chats'), fields)
       chatId = ref.id
-      upsertChat({ id: chatId, ...fields })
     }
     setActiveChatId(chatId)
   }

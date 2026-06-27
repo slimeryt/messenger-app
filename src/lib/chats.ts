@@ -12,19 +12,32 @@ export function toMillis(value: unknown): number {
 }
 
 export function parseChat(id: string, data: Record<string, unknown>): Chat {
+  const lastMessage = String(data.lastMessage ?? '')
+  const lastMessageTime = toMillis(data.lastMessageTime)
   return {
     id,
     type: (data.type as Chat['type']) ?? 'dm',
     name: String(data.name ?? ''),
     avatarUrl: (data.avatarUrl as string | null) ?? null,
     memberIds: Array.isArray(data.memberIds) ? (data.memberIds as string[]) : [],
-    lastMessage: String(data.lastMessage ?? ''),
-    lastMessageTime: toMillis(data.lastMessageTime) || Date.now(),
+    lastMessage,
+    lastMessageTime: lastMessage ? lastMessageTime : 0,
+    lastMessageSenderId: data.lastMessageSenderId ? String(data.lastMessageSenderId) : undefined,
     createdBy: String(data.createdBy ?? ''),
     unread: typeof data.unread === 'number' ? data.unread : undefined,
     participantNames: data.participantNames as Record<string, string> | undefined,
     participantAvatars: data.participantAvatars as Record<string, string | null> | undefined,
   }
+}
+
+/** Chats that belong in the list — only conversations with at least one message. */
+export function isListedChat(chat: Chat): boolean {
+  if (chat.type === 'dm' && chat.memberIds.length === 1) return false
+  return !!chat.lastMessage.trim()
+}
+
+export function filterListedChats(chats: Chat[]): Chat[] {
+  return sortChats(chats.filter(isListedChat))
 }
 
 export function sortChats(chats: Chat[]): Chat[] {
@@ -63,7 +76,7 @@ export function buildDmChatFields(me: User, other: User) {
     participantNames: { [me.uid]: me.username, [other.uid]: other.username },
     participantAvatars: { [me.uid]: me.avatarUrl, [other.uid]: other.avatarUrl },
     lastMessage: '',
-    lastMessageTime: Date.now(),
+    lastMessageTime: 0,
     createdBy: me.uid,
   }
 }

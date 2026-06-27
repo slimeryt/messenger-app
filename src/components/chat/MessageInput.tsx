@@ -86,11 +86,16 @@ export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props
       pinned: false,
       createdAt: Date.now(),
     })
-    useChatStore.getState().patchChat(chatId, { lastMessage: preview, lastMessageTime: now })
+    useChatStore.getState().patchChat(chatId, {
+      lastMessage: preview,
+      lastMessageTime: now,
+      lastMessageSenderId: me.uid,
+    })
     try {
       await updateDoc(doc(db, 'chats', chatId), {
         lastMessage: preview,
         lastMessageTime: now,
+        lastMessageSenderId: me.uid,
       })
     } catch (err) {
       console.error('Failed to update chat preview:', err)

@@ -11,9 +11,9 @@ import { UpdateModal } from './components/UpdateModal'
 import { checkForUpdate } from './lib/updater'
 import { initSafeAreaInsets } from './lib/safeArea'
 import { useChatSync } from './hooks/useChatSync'
+import { initPushNotifications } from './lib/push'
 import { firebaseConfigured } from './firebase'
 import { LangProvider } from './contexts/LangContext'
-import { PushNotifications } from '@capacitor/push-notifications'
 import { Camera } from '@capacitor/camera'
 import { Capacitor, CapacitorHttp, registerPlugin } from '@capacitor/core'
 import { Filesystem, Directory } from '@capacitor/filesystem'
@@ -46,11 +46,7 @@ export default function App() {
   useEffect(() => {
     async function requestPermissions() {
       if (!Capacitor.isNativePlatform()) return
-      // Notifications
-      try { await PushNotifications.requestPermissions() } catch {}
-      // Camera + Photos (covers gallery READ_MEDIA_IMAGES)
       try { await Camera.requestPermissions({ permissions: ['camera', 'photos'] }) } catch {}
-      // Microphone
       try {
         const s = await navigator.mediaDevices.getUserMedia({ audio: true })
         s.getTracks().forEach(t => t.stop())
@@ -58,6 +54,13 @@ export default function App() {
     }
     requestPermissions()
   }, [])
+
+  useEffect(() => {
+    if (!user?.uid || !Capacitor.isNativePlatform()) return
+    let cleanup = () => {}
+    void initPushNotifications(user.uid).then((fn) => { cleanup = fn })
+    return () => cleanup()
+  }, [user?.uid])
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {

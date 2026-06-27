@@ -27,7 +27,7 @@ Copy-Item $apkSrc $apkDest -Force
 if ($Release) {
     Write-Host "Creating GitHub release $Release..." -ForegroundColor Yellow
     Set-Location $root
-    $notes = '{"type":"bugfix-minor","force":false,"notes":"Bug fixes","changelog":["Chats list now loads and updates correctly","DMs show the right person name and avatar","New conversations appear immediately after messaging"],"counters":{"major":1,"minor":0,"ui":4,"bugfixMajor":1,"bugfixMinor":1}}'
+    $notes = '{"type":"bugfix-minor","force":false,"notes":"Bug fixes","changelog":["Chats list only shows people you have messaged","No more notifications from your own messages","Push notifications for background messages (requires Firebase functions deploy)"],"counters":{"major":1,"minor":0,"ui":4,"bugfixMajor":1,"bugfixMinor":2}}'
     $notesFile = [System.IO.Path]::GetTempFileName()
     [System.IO.File]::WriteAllText($notesFile, $notes, (New-Object System.Text.UTF8Encoding $false))
     try { gh release delete $Release --repo slimeryt/messenger-app --yes 2>$null } catch {}

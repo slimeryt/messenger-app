@@ -7,10 +7,10 @@ import { Chat } from '../../types'
 import { Avatar } from '../ui/Avatar'
 import { Search, Edit, BookmarkCheck } from 'lucide-react'
 import { NewChatModal } from './NewChatModal'
-import { getChatAvatar, getChatTitle } from '../../lib/chats'
+import { getChatAvatar, getChatTitle, isListedChat } from '../../lib/chats'
 
 export function ChatListScreen() {
-  const { chats, setActiveChatId, upsertChat } = useChatStore()
+  const { chats, setActiveChatId } = useChatStore()
   const me = useAuthStore((s) => s.user)
   const [search, setSearch] = useState('')
   const [showNew, setShowNew] = useState(false)
@@ -27,24 +27,14 @@ export function ChatListScreen() {
       avatarUrl: null,
       memberIds: [me.uid],
       lastMessage: '',
-      lastMessageTime: Date.now(),
-      createdBy: me.uid,
-    })
-    upsertChat({
-      id: ref.id,
-      type: 'dm',
-      name: 'Saved Messages',
-      avatarUrl: null,
-      memberIds: [me.uid],
-      lastMessage: '',
-      lastMessageTime: Date.now(),
+      lastMessageTime: 0,
       createdBy: me.uid,
     })
     setActiveChatId(ref.id)
   }
 
   const filtered = chats.filter((c) => {
-    if (c.type === 'dm' && c.memberIds.length === 1) return false
+    if (!isListedChat(c)) return false
     const title = me ? getChatTitle(c, me.uid) : c.name
     return title.toLowerCase().includes(search.toLowerCase())
   })

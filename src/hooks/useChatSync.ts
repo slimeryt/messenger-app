@@ -1,13 +1,21 @@
 import { useEffect, useRef } from 'react'
+import { App } from '@capacitor/app'
+import { Capacitor } from '@capacitor/core'
 import { collection, doc, getDoc, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuthStore } from '../store/authStore'
 import { useChatStore } from '../store/chatStore'
 import { Chat } from '../types'
 import { getNotificationPermission, sendNotification } from '../lib/notifications'
-import { parseChat, sortChats, getChatTitle } from '../lib/chats'
+import { filterListedChats, getChatTitle, parseChat } from '../lib/chats'
 
-async function notifyNewMessages(chats: Chat[], prevTimes: Record<string, number>, myUid: string) {
+async function notifyNewMessages(
+  chats: Chat[],
+  prevTimes: Record<string, number>,
+  myUid: string,
+  appIsActive: boolean
+) {
+  if (!appIsActive) return
   try {
     const notifEnabled = localStorage.getItem('nod_notif') !== 'false'
     if (!notifEnabled) return
@@ -15,10 +23,16 @@ async function notifyNewMessages(chats: Chat[], prevTimes: Record<string, number
     const perm = await getNotificationPermission()
     if (perm !== 'granted') return
     const notifVibrate = localStorage.getItem('nod_notifVibrate') !== 'false'
+    const activeChatId = useChatStore.getState().activeChatId
+    const showPreview = localStorage.getItem('nod_notifPreview') !== 'false'
+
     for (const chat of chats) {
+      if (chat.id === activeChatId) continue
+      if (chat.lastMessageSenderId === myUid) continue
       const prev = prevTimes[chat.id] ?? 0
       if (chat.lastMessageTime > prev && chat.lastMessage) {
-        await sendNotification(getChatTitle(chat, myUid), chat.lastMessage, !notifSound, notifVibrate)
+        const body = showPreview ? chat.lastMessage : 'New message'
+        await sendNotification(getChatTitle(chat, myUid), body, !notifSound, notifVibrate)
       }
     }
   } catch {
@@ -65,6 +79,16 @@ export function useChatSync() {
   const setChats = useChatStore((s) => s.setChats)
   const prevTimesRef = useRef<Record<string, number>>({})
   const initialLoadRef = useRef(true)
+  const appIsActiveRef = useRef(true)
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return
+    let handle: { remove: () => Promise<void> } | undefined
+    void App.addListener('appStateChange', ({ isActive }) => {
+      appIsActiveRef.current = isActive
+    }).then((h) => { handle = h })
+    return () => { void handle?.remove() }
+  }, [])
 
   useEffect(() => {
     if (!me) {
@@ -72,7 +96,6 @@ export function useChatSync() {
       return
     }
 
-    // No orderBy — avoids composite index requirement; sort client-side instead
     const q = query(
       collection(db, 'chats'),
       where('memberIds', 'array-contains', me.uid)
@@ -81,17 +104,18 @@ export function useChatSync() {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        const parsed = sortChats(snap.docs.map((d) => parseChat(d.id, d.data())))
+        const parsed = filterListedChats(snap.docs.map((d) => parseChat(d.id, d.data())))
         const prevTimes = prevTimesRef.current
 
         setChats(parsed)
 
         void enrichParticipantProfiles(parsed).then((enriched) => {
-          if (enriched !== parsed) setChats(sortChats(enriched))
+          const listed = filterListedChats(enriched)
+          setChats(listed)
         })
 
         if (!initialLoadRef.current) {
-          void notifyNewMessages(parsed, prevTimes, me.uid)
+          void notifyNewMessages(parsed, prevTimes, me.uid, appIsActiveRef.current)
         }
 
         prevTimesRef.current = Object.fromEntries(parsed.map((c) => [c.id, c.lastMessageTime]))

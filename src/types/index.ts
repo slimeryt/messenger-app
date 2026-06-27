@@ -17,6 +17,7 @@ export interface User {
   banned: boolean
   blockedUsers?: string[]
   lastSeenVisibility?: 'everyone' | 'contacts' | 'nobody'
+  fcmTokens?: string[]
 }
 
 export type ChatType = 'dm' | 'group' | 'channel'
@@ -29,6 +30,7 @@ export interface Chat {
   memberIds: string[]
   lastMessage: string
   lastMessageTime: number
+  lastMessageSenderId?: string
   createdBy: string
   unread?: number
   participantNames?: Record<string, string>

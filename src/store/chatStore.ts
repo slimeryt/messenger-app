@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { Chat } from '../types'
-import { sortChats } from '../lib/chats'
+import { isListedChat, sortChats } from '../lib/chats'
 
 interface ChatStore {
   chats: Chat[]
@@ -14,10 +14,11 @@ interface ChatStore {
 export const useChatStore = create<ChatStore>((set) => ({
   chats: [],
   activeChatId: null,
-  setChats: (chats) => set({ chats: sortChats(chats) }),
+  setChats: (chats) => set({ chats: sortChats(chats.filter(isListedChat)) }),
   setActiveChatId: (activeChatId) => set({ activeChatId }),
   upsertChat: (chat) =>
     set((s) => {
+      if (!isListedChat(chat)) return s
       const idx = s.chats.findIndex((c) => c.id === chat.id)
       if (idx === -1) return { chats: sortChats([chat, ...s.chats]) }
       const updated = [...s.chats]
@@ -27,9 +28,17 @@ export const useChatStore = create<ChatStore>((set) => ({
   patchChat: (id, patch) =>
     set((s) => {
       const idx = s.chats.findIndex((c) => c.id === id)
-      if (idx === -1) return s
+      if (idx === -1) {
+        const created = { id, type: 'dm', name: '', avatarUrl: null, memberIds: [], lastMessage: '', lastMessageTime: 0, createdBy: '', ...patch } as Chat
+        if (!isListedChat(created)) return s
+        return { chats: sortChats([created, ...s.chats]) }
+      }
+      const merged = { ...s.chats[idx], ...patch }
+      if (!isListedChat(merged)) {
+        return { chats: s.chats.filter((c) => c.id !== id) }
+      }
       const updated = [...s.chats]
-      updated[idx] = { ...updated[idx], ...patch }
+      updated[idx] = merged
       return { chats: sortChats(updated) }
     }),
 }))
