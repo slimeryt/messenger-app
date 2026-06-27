@@ -11,7 +11,6 @@ import { useLang } from '../../contexts/LangContext'
 import { Avatar } from '../ui/Avatar'
 import { MessageSquare, Settings, Users, Search, UserPlus, Phone, ChevronRight } from 'lucide-react'
 import { User } from '../../types'
-import { useSwipe } from '../../hooks/useSwipe'
 
 type Tab = 'chats' | 'contacts' | 'settings' | 'profile'
 
@@ -41,12 +40,59 @@ export function AppLayout() {
   const dragEl = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
 
-  // Swipe left/right to switch tabs (must be before any early return)
-  const tabSwipe = useSwipe({
-    onSwipeLeft:  () => { const i = TAB_IDS.indexOf(tab); if (i < TAB_IDS.length - 1) setTab(TAB_IDS[i + 1]) },
-    onSwipeRight: () => { const i = TAB_IDS.indexOf(tab); if (i > 0) setTab(TAB_IDS[i - 1]) },
-    threshold: 60,
-  })
+  // Tab drag-to-switch
+  const tabContentRef = useRef<HTMLDivElement>(null)
+  const tabDragStartX = useRef(0)
+  const tabDragStartY = useRef(0)
+  const tabDragging = useRef(false)
+  const tabLocked = useRef<'h' | 'v' | null>(null)
+
+  function onTabTouchStart(e: React.TouchEvent) {
+    tabDragStartX.current = e.touches[0].clientX
+    tabDragStartY.current = e.touches[0].clientY
+    tabDragging.current = true
+    tabLocked.current = null
+  }
+
+  function onTabTouchMove(e: React.TouchEvent) {
+    if (!tabDragging.current) return
+    const dx = e.touches[0].clientX - tabDragStartX.current
+    const dy = e.touches[0].clientY - tabDragStartY.current
+    if (!tabLocked.current) {
+      tabLocked.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+    }
+    if (tabLocked.current !== 'h') return
+    if (tabContentRef.current) {
+      tabContentRef.current.style.transform = `translateX(${dx}px)`
+    }
+  }
+
+  function onTabTouchEnd(e: React.TouchEvent) {
+    if (!tabDragging.current || tabLocked.current !== 'h') return
+    tabDragging.current = false
+    const dx = e.changedTouches[0].clientX - tabDragStartX.current
+    const el = tabContentRef.current
+    if (!el) return
+    const w = window.innerWidth
+    if (Math.abs(dx) > 60) {
+      const dir = dx < 0 ? 1 : -1
+      el.style.transition = 'transform 0.2s ease'
+      el.style.transform = `translateX(${dir < 0 ? w : -w}px)`
+      setTimeout(() => {
+        el.style.transition = 'none'
+        el.style.transform = 'translateX(0)'
+        setTab((prev) => {
+          const i = TAB_IDS.indexOf(prev)
+          const next = i + dir
+          return next >= 0 && next < TAB_IDS.length ? TAB_IDS[next] : prev
+        })
+      }, 200)
+    } else {
+      el.style.transition = 'transform 0.3s cubic-bezier(0.25,1,0.5,1)'
+      el.style.transform = 'translateX(0)'
+      setTimeout(() => { el.style.transition = '' }, 310)
+    }
+  }
 
   function onChatTouchStart(e: React.TouchEvent) {
     if (e.touches[0].clientX > 32) return
@@ -90,7 +136,13 @@ export function AppLayout() {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)', position: 'relative', paddingTop: 'env(safe-area-inset-top)' }}>
-      <div {...tabSwipe} style={{ flex: 1, overflow: 'hidden', paddingBottom: 80 }}>
+      <div
+        ref={tabContentRef}
+        onTouchStart={onTabTouchStart}
+        onTouchMove={onTabTouchMove}
+        onTouchEnd={onTabTouchEnd}
+        style={{ flex: 1, overflow: 'hidden', paddingBottom: 80 }}
+      >
         {tab === 'chats' && <ChatListScreen />}
         {tab === 'contacts' && <ContactsScreen />}
         {tab === 'settings' && <SettingsScreen />}

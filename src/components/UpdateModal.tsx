@@ -1,6 +1,6 @@
-import { UpdateInfo } from '../types'
+import { UpdateInfo, UpdateType } from '../types'
 import { Button } from './ui/Button'
-import { Download, AlertTriangle } from 'lucide-react'
+import { Download, AlertTriangle, Sparkles, Wrench, Palette, Zap } from 'lucide-react'
 
 interface Props {
   info: UpdateInfo
@@ -9,7 +9,17 @@ interface Props {
   onLater?: () => void
 }
 
+const TYPE_META: Record<UpdateType, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
+  'major':        { label: 'Major Update',     color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  icon: <Zap size={13} /> },
+  'minor':        { label: 'Minor Update',     color: '#a3a3a3', bg: 'rgba(163,163,163,0.10)', icon: <Sparkles size={13} /> },
+  'ui':           { label: 'UI/UX Update',     color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', icon: <Palette size={13} /> },
+  'bugfix-major': { label: 'Major Bug Fix',    color: '#ef4444', bg: 'rgba(239,68,68,0.12)',   icon: <AlertTriangle size={13} /> },
+  'bugfix-minor': { label: 'Minor Bug Fix',    color: '#22c55e', bg: 'rgba(34,197,94,0.12)',   icon: <Wrench size={13} /> },
+}
+
 export function UpdateModal({ info, downloading, onUpdate, onLater }: Props) {
+  const meta = TYPE_META[info.type] ?? TYPE_META['minor']
+
   return (
     <div
       style={{
@@ -27,36 +37,49 @@ export function UpdateModal({ info, downloading, onUpdate, onLater }: Props) {
         style={{
           background: 'var(--bg-2)',
           border: '1px solid var(--border)',
-          borderRadius: 12,
+          borderRadius: 16,
           width: '100%',
-          maxWidth: 360,
+          maxWidth: 340,
           padding: 24,
           display: 'flex',
           flexDirection: 'column',
           gap: 16,
         }}
       >
-        {info.force && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              color: '#f59e0b',
-              fontSize: 13,
-            }}
-          >
-            <AlertTriangle size={16} />
-            <span>Required update</span>
+        {/* Type badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            background: meta.bg,
+            color: meta.color,
+            fontSize: 12, fontWeight: 600,
+            padding: '4px 10px',
+            borderRadius: 999,
+          }}>
+            {meta.icon}
+            {meta.label}
           </div>
-        )}
+          {info.force && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              background: 'rgba(245,158,11,0.12)',
+              color: '#f59e0b',
+              fontSize: 12, fontWeight: 600,
+              padding: '4px 10px',
+              borderRadius: 999,
+            }}>
+              <AlertTriangle size={13} />
+              Required
+            </div>
+          )}
+        </div>
 
         <div>
-          <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}>
-            Update {info.version} available
+          <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 6 }}>
+            Nod {info.version}
           </div>
           {info.notes && (
-            <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
+            <div style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>
               {info.notes}
             </div>
           )}

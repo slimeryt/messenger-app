@@ -57,8 +57,11 @@ export interface TypingState {
   [uid: string]: string // uid -> username
 }
 
+export type UpdateType = 'minor' | 'major' | 'ui' | 'bugfix-minor' | 'bugfix-major'
+
 export interface UpdateInfo {
   version: string
+  type: UpdateType
   force: boolean
   notes: string
   downloadUrl: string
