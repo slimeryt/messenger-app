@@ -6,64 +6,76 @@ import { db } from '../firebase'
 import { useChatStore } from '../store/chatStore'
 import { sendNotification } from './notifications'
 
-const listeners: { remove: () => Promise<void> }[] = []
+let pushEnabled = false
+
+/** Call PushNotifications APIs only after a successful register(). */
+export function isPushEnabled() {
+  return pushEnabled
+}
 
 export async function initPushNotifications(uid: string): Promise<() => void> {
   if (!Capacitor.isNativePlatform()) return () => {}
 
-  const perm = await PushNotifications.requestPermissions()
-  if (perm.receive !== 'granted') return () => {}
+  const listeners: { remove: () => Promise<void> }[] = []
 
-  await PushNotifications.register()
+  try {
+    const perm = await PushNotifications.requestPermissions()
+    if (perm.receive !== 'granted') return () => {}
 
-  listeners.push(
-    await PushNotifications.addListener('registration', async (token) => {
-      await updateDoc(doc(db, 'users', uid), {
-        fcmTokens: arrayUnion(token.value),
-      }).catch(() => {})
-    })
-  )
+    await PushNotifications.register()
+    pushEnabled = true
 
-  listeners.push(
-    await PushNotifications.addListener('registrationError', (err) => {
-      console.error('Push registration failed:', err)
-    })
-  )
+    listeners.push(
+      await PushNotifications.addListener('registration', async (token) => {
+        await updateDoc(doc(db, 'users', uid), {
+          fcmTokens: arrayUnion(token.value),
+        }).catch(() => {})
+      })
+    )
 
-  // Foreground push — show a local notification (background is handled by FCM + cloud function)
-  listeners.push(
-    await PushNotifications.addListener('pushNotificationReceived', async (notification) => {
-      const chatId = notification.data?.chatId as string | undefined
-      const activeChatId = useChatStore.getState().activeChatId
-      if (chatId && chatId === activeChatId) return
-      if (localStorage.getItem('nod_notif') === 'false') return
+    listeners.push(
+      await PushNotifications.addListener('registrationError', (err) => {
+        console.warn('Push registration failed:', err)
+        pushEnabled = false
+      })
+    )
 
-      const title = notification.title ?? 'Nod'
-      const showPreview = localStorage.getItem('nod_notifPreview') !== 'false'
-      const body = showPreview
-        ? (notification.body ?? 'New message')
-        : 'New message'
-      const silent = localStorage.getItem('nod_notifSound') === 'false'
-      const vibrate = localStorage.getItem('nod_notifVibrate') !== 'false'
-      await sendNotification(title, body, silent, vibrate)
-    })
-  )
+    listeners.push(
+      await PushNotifications.addListener('pushNotificationReceived', async (notification) => {
+        const chatId = notification.data?.chatId as string | undefined
+        const activeChatId = useChatStore.getState().activeChatId
+        if (chatId && chatId === activeChatId) return
+        if (localStorage.getItem('nod_notif') === 'false') return
 
-  listeners.push(
-    await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-      const chatId = action.notification.data?.chatId as string | undefined
-      if (chatId) useChatStore.getState().setActiveChatId(chatId)
-    })
-  )
+        const title = notification.title ?? 'Nod'
+        const showPreview = localStorage.getItem('nod_notifPreview') !== 'false'
+        const body = showPreview ? (notification.body ?? 'New message') : 'New message'
+        const silent = localStorage.getItem('nod_notifSound') === 'false'
+        const vibrate = localStorage.getItem('nod_notifVibrate') !== 'false'
+        await sendNotification(title, body, silent, vibrate)
+      })
+    )
 
-  // Keep Firestore listener warm briefly when app is backgrounded
-  listeners.push(
-    await App.addListener('appStateChange', ({ isActive }) => {
-      if (isActive) PushNotifications.register().catch(() => {})
-    })
-  )
+    listeners.push(
+      await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+        const chatId = action.notification.data?.chatId as string | undefined
+        if (chatId) useChatStore.getState().setActiveChatId(chatId)
+      })
+    )
+
+    listeners.push(
+      await App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive && pushEnabled) PushNotifications.register().catch(() => {})
+      })
+    )
+  } catch (err) {
+    // Missing google-services.json or FCM not configured — skip push, app still works
+    console.warn('Push notifications unavailable:', err)
+    pushEnabled = false
+  }
 
   return () => {
-    void Promise.all(listeners.splice(0).map((l) => l.remove()))
+    pushEnabled = false
+    void Promise.all(listeners.map((l) => l.remove()))
   }
 }

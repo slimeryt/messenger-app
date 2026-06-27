@@ -58,8 +58,13 @@ export default function App() {
   useEffect(() => {
     if (!user?.uid || !Capacitor.isNativePlatform()) return
     let cleanup = () => {}
-    void initPushNotifications(user.uid).then((fn) => { cleanup = fn })
-    return () => cleanup()
+    const timer = setTimeout(() => {
+      void initPushNotifications(user.uid).then((fn) => { cleanup = fn })
+    }, 1500)
+    return () => {
+      clearTimeout(timer)
+      cleanup()
+    }
   }, [user?.uid])
 
   useEffect(() => {
