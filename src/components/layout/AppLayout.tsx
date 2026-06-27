@@ -106,15 +106,19 @@ function ContactsScreen() {
 
   useEffect(() => {
     if (!me) return
-    getDocs(collection(db, 'users')).then((snap) => {
-      const all = snap.docs
-        .map((d) => ({ uid: d.id, ...d.data() } as User))
-        .filter((u) => u.uid !== me.uid && !u.banned)
-        .sort((a, b) => a.username.localeCompare(b.username))
-      setContacts(all)
-      setLoading(false)
-    })
-  }, [me?.uid])
+    // Only show users you have a DM with
+    const dmChats = chats.filter((c) => c.type === 'dm' && c.memberIds.length === 2)
+    const otherUids = [...new Set(dmChats.flatMap((c) => c.memberIds).filter((uid) => uid !== me.uid))]
+    if (otherUids.length === 0) { setContacts([]); setLoading(false); return }
+    Promise.all(otherUids.map((uid) => getDocs(query(collection(db, 'users'), where('__name__', '==', uid)))))
+      .then((snaps) => {
+        const users = snaps.flatMap((s) => s.docs.map((d) => ({ uid: d.id, ...d.data() } as User)))
+          .filter((u) => !u.banned)
+          .sort((a, b) => a.username.localeCompare(b.username))
+        setContacts(users)
+        setLoading(false)
+      })
+  }, [me?.uid, chats])
 
   async function openDM(user: User) {
     if (!me) return
