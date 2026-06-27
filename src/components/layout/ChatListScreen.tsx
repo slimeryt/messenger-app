@@ -7,9 +7,10 @@ import { Chat } from '../../types'
 import { Avatar } from '../ui/Avatar'
 import { Search, Edit, BookmarkCheck } from 'lucide-react'
 import { NewChatModal } from './NewChatModal'
+import { getChatAvatar, getChatTitle } from '../../lib/chats'
 
 export function ChatListScreen() {
-  const { chats, setActiveChatId } = useChatStore()
+  const { chats, setActiveChatId, upsertChat } = useChatStore()
   const me = useAuthStore((s) => s.user)
   const [search, setSearch] = useState('')
   const [showNew, setShowNew] = useState(false)
@@ -29,12 +30,24 @@ export function ChatListScreen() {
       lastMessageTime: Date.now(),
       createdBy: me.uid,
     })
+    upsertChat({
+      id: ref.id,
+      type: 'dm',
+      name: 'Saved Messages',
+      avatarUrl: null,
+      memberIds: [me.uid],
+      lastMessage: '',
+      lastMessageTime: Date.now(),
+      createdBy: me.uid,
+    })
     setActiveChatId(ref.id)
   }
 
-  const filtered = chats.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = chats.filter((c) => {
+    if (c.type === 'dm' && c.memberIds.length === 1) return false
+    const title = me ? getChatTitle(c, me.uid) : c.name
+    return title.toLowerCase().includes(search.toLowerCase())
+  })
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -105,7 +118,7 @@ export function ChatListScreen() {
         </button>
 
         {filtered.map((chat) => (
-          <ChatRow key={chat.id} chat={chat} onClick={() => setActiveChatId(chat.id)} />
+          <ChatRow key={chat.id} chat={chat} myUid={me?.uid ?? ''} onClick={() => setActiveChatId(chat.id)} />
         ))}
 
         {filtered.length === 0 && chats.length > 0 && (
@@ -123,7 +136,9 @@ export function ChatListScreen() {
   )
 }
 
-function ChatRow({ chat, onClick }: { chat: Chat; onClick: () => void }) {
+function ChatRow({ chat, myUid, onClick }: { chat: Chat; myUid: string; onClick: () => void }) {
+  const title = getChatTitle(chat, myUid)
+  const avatar = getChatAvatar(chat, myUid)
   const time = chat.lastMessageTime
     ? new Date(chat.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : ''
@@ -133,11 +148,11 @@ function ChatRow({ chat, onClick }: { chat: Chat; onClick: () => void }) {
       onClick={onClick}
       style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '10px 16px', textAlign: 'left' }}
     >
-      <Avatar url={chat.avatarUrl} name={chat.name} size={50} />
+      <Avatar url={avatar} name={title} size={50} />
       <div style={{ flex: 1, minWidth: 0, borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
           <span style={{ fontWeight: 600, fontSize: 15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-            {chat.name}
+            {title}
           </span>
           <span style={{ fontSize: 12, color: 'var(--text-3)', flexShrink: 0, marginLeft: 8 }}>{time}</span>
         </div>

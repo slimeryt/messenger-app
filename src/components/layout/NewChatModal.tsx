@@ -11,6 +11,7 @@ import { db } from '../../firebase'
 import { useAuthStore } from '../../store/authStore'
 import { useChatStore } from '../../store/chatStore'
 import { User } from '../../types'
+import { buildDmChatFields, parseChat } from '../../lib/chats'
 import { Button } from '../ui/Button'
 import { Avatar } from '../ui/Avatar'
 import { ArrowLeft, Search, Plus, X, MessageSquare, Users, Radio, ChevronRight } from 'lucide-react'
@@ -51,7 +52,7 @@ export function NewChatModal({ onClose }: Props) {
   const [error, setError] = useState('')
   const [contacts, setContacts] = useState<User[]>([])
   const me = useAuthStore((s) => s.user)
-  const { chats, setActiveChatId } = useChatStore()
+  const { chats, setActiveChatId, upsertChat } = useChatStore()
 
   useEffect(() => {
     if (!me) return
@@ -88,17 +89,12 @@ export function NewChatModal({ onClose }: Props) {
     let chatId: string
     if (!snap.empty) {
       chatId = snap.docs[0].id
+      upsertChat(parseChat(chatId, snap.docs[0].data()))
     } else {
-      const ref = await addDoc(collection(db, 'chats'), {
-        type: 'dm',
-        name: found.username,
-        avatarUrl: found.avatarUrl,
-        memberIds: ids,
-        lastMessage: '',
-        lastMessageTime: Date.now(),
-        createdBy: me.uid,
-      })
+      const fields = buildDmChatFields(me, found)
+      const ref = await addDoc(collection(db, 'chats'), fields)
       chatId = ref.id
+      upsertChat({ id: chatId, ...fields })
     }
     setActiveChatId(chatId)
     onClose()
@@ -196,9 +192,16 @@ export function NewChatModal({ onClose }: Props) {
                         const ids = [me.uid, u.uid].sort()
                         const q = query(collection(db, 'chats'), where('type', '==', 'dm'), where('memberIds', '==', ids))
                         const snap = await getDocs(q)
-                        const chatId = snap.empty
-                          ? (await addDoc(collection(db, 'chats'), { type: 'dm', name: u.username, avatarUrl: u.avatarUrl, memberIds: ids, lastMessage: '', lastMessageTime: Date.now(), createdBy: me.uid })).id
-                          : snap.docs[0].id
+                        let chatId: string
+                        if (!snap.empty) {
+                          chatId = snap.docs[0].id
+                          upsertChat(parseChat(chatId, snap.docs[0].data()))
+                        } else {
+                          const fields = buildDmChatFields(me, u)
+                          const ref = await addDoc(collection(db, 'chats'), fields)
+                          chatId = ref.id
+                          upsertChat({ id: chatId, ...fields })
+                        }
                         setActiveChatId(chatId)
                         onClose()
                       }}

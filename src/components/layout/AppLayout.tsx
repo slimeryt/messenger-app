@@ -8,6 +8,7 @@ import { ProfileScreen } from './ProfileScreen'
 import { useChatStore } from '../../store/chatStore'
 import { useAuthStore } from '../../store/authStore'
 import { useLang } from '../../contexts/LangContext'
+import { buildDmChatFields, parseChat } from '../../lib/chats'
 import { Avatar } from '../ui/Avatar'
 import { MessageSquare, Settings, Users, Search, UserPlus, Phone, ChevronRight } from 'lucide-react'
 import { User } from '../../types'
@@ -264,7 +265,7 @@ export function AppLayout() {
 
 function ContactsScreen() {
   const me = useAuthStore((s) => s.user)
-  const { chats, setActiveChatId } = useChatStore()
+  const { chats, setActiveChatId, upsertChat } = useChatStore()
   const [search, setSearch] = useState('')
   const [contacts, setContacts] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
@@ -295,17 +296,12 @@ function ContactsScreen() {
     let chatId: string
     if (!snap.empty) {
       chatId = snap.docs[0].id
+      upsertChat(parseChat(chatId, snap.docs[0].data()))
     } else {
-      const ref = await addDoc(collection(db, 'chats'), {
-        type: 'dm',
-        name: user.username,
-        avatarUrl: user.avatarUrl,
-        memberIds: ids,
-        lastMessage: '',
-        lastMessageTime: Date.now(),
-        createdBy: me.uid,
-      })
+      const fields = buildDmChatFields(me, user)
+      const ref = await addDoc(collection(db, 'chats'), fields)
       chatId = ref.id
+      upsertChat({ id: chatId, ...fields })
     }
     setActiveChatId(chatId)
   }

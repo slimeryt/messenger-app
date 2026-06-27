@@ -31,6 +31,8 @@ export interface Chat {
   lastMessageTime: number
   createdBy: string
   unread?: number
+  participantNames?: Record<string, string>
+  participantAvatars?: Record<string, string | null>
 }
 
 export type MessageType = 'text' | 'image' | 'audio' | 'file' | 'system'

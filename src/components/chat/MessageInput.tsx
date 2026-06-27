@@ -10,7 +10,9 @@ import {
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { compressImage, fileToBase64 } from '../../lib/toBase64'
+import { lastMessagePreview } from '../../lib/chats'
 import { useAuthStore } from '../../store/authStore'
+import { useChatStore } from '../../store/chatStore'
 import { Message } from '../../types'
 import { Send, Mic, Trash2, X, Image } from 'lucide-react'
 import { ImagePickerSheet } from './ImagePickerSheet'
@@ -66,6 +68,8 @@ export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props
     attachmentMeta?: Message['attachmentMeta']
   ) {
     if (!me) return
+    const preview = lastMessagePreview(content, type)
+    const now = Date.now()
     await addDoc(collection(db, 'chats', chatId, 'messages'), {
       chatId,
       senderId: me.uid,
@@ -82,10 +86,15 @@ export function MessageInput({ chatId, replyTo, onCancelReply, readOnly }: Props
       pinned: false,
       createdAt: Date.now(),
     })
-    await updateDoc(doc(db, 'chats', chatId), {
-      lastMessage: type === 'text' ? content : `[${type}]`,
-      lastMessageTime: Date.now(),
-    })
+    useChatStore.getState().patchChat(chatId, { lastMessage: preview, lastMessageTime: now })
+    try {
+      await updateDoc(doc(db, 'chats', chatId), {
+        lastMessage: preview,
+        lastMessageTime: now,
+      })
+    } catch (err) {
+      console.error('Failed to update chat preview:', err)
+    }
     onCancelReply()
   }
 

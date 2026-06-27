@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react'
-import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore'
+import { collection, doc, getDoc, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuthStore } from '../store/authStore'
 import { useChatStore } from '../store/chatStore'
 import { Chat } from '../types'
 import { getNotificationPermission, sendNotification } from '../lib/notifications'
+import { parseChat, sortChats, getChatTitle } from '../lib/chats'
 
-async function notifyNewMessages(chats: Chat[], prevTimes: Record<string, number>) {
+async function notifyNewMessages(chats: Chat[], prevTimes: Record<string, number>, myUid: string) {
   try {
     const notifEnabled = localStorage.getItem('nod_notif') !== 'false'
     if (!notifEnabled) return
@@ -17,12 +18,46 @@ async function notifyNewMessages(chats: Chat[], prevTimes: Record<string, number
     for (const chat of chats) {
       const prev = prevTimes[chat.id] ?? 0
       if (chat.lastMessageTime > prev && chat.lastMessage) {
-        await sendNotification(chat.name, chat.lastMessage, !notifSound, notifVibrate)
+        await sendNotification(getChatTitle(chat, myUid), chat.lastMessage, !notifSound, notifVibrate)
       }
     }
   } catch {
     // Never block chat list updates on notification failures
   }
+}
+
+async function enrichParticipantProfiles(chats: Chat[]): Promise<Chat[]> {
+  const needs = chats.filter(
+    (c) => c.type === 'dm' && c.memberIds.length === 2 && !c.participantNames
+  )
+  if (needs.length === 0) return chats
+
+  const uids = [...new Set(needs.flatMap((c) => c.memberIds))]
+  const profiles = await Promise.all(
+    uids.map(async (uid) => {
+      const snap = await getDoc(doc(db, 'users', uid))
+      if (!snap.exists()) return null
+      const data = snap.data()
+      return { uid, username: String(data.username ?? ''), avatarUrl: (data.avatarUrl as string | null) ?? null }
+    })
+  )
+  const byUid = Object.fromEntries(
+    profiles.filter(Boolean).map((p) => [p!.uid, p!])
+  )
+
+  return chats.map((chat) => {
+    if (chat.type !== 'dm' || chat.memberIds.length !== 2 || chat.participantNames) return chat
+    const participantNames: Record<string, string> = {}
+    const participantAvatars: Record<string, string | null> = {}
+    for (const uid of chat.memberIds) {
+      const p = byUid[uid]
+      if (p) {
+        participantNames[uid] = p.username
+        participantAvatars[uid] = p.avatarUrl
+      }
+    }
+    return { ...chat, participantNames, participantAvatars }
+  })
 }
 
 export function useChatSync() {
@@ -37,25 +72,29 @@ export function useChatSync() {
       return
     }
 
+    // No orderBy — avoids composite index requirement; sort client-side instead
     const q = query(
       collection(db, 'chats'),
-      where('memberIds', 'array-contains', me.uid),
-      orderBy('lastMessageTime', 'desc')
+      where('memberIds', 'array-contains', me.uid)
     )
 
     const unsub = onSnapshot(
       q,
       (snap) => {
-        const updated = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Chat))
+        const parsed = sortChats(snap.docs.map((d) => parseChat(d.id, d.data())))
         const prevTimes = prevTimesRef.current
 
-        setChats(updated)
+        setChats(parsed)
+
+        void enrichParticipantProfiles(parsed).then((enriched) => {
+          if (enriched !== parsed) setChats(sortChats(enriched))
+        })
 
         if (!initialLoadRef.current) {
-          void notifyNewMessages(updated, prevTimes)
+          void notifyNewMessages(parsed, prevTimes, me.uid)
         }
 
-        prevTimesRef.current = Object.fromEntries(updated.map((c) => [c.id, c.lastMessageTime]))
+        prevTimesRef.current = Object.fromEntries(parsed.map((c) => [c.id, c.lastMessageTime]))
         initialLoadRef.current = false
       },
       (err) => console.error('Chat sync failed:', err)
