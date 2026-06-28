@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc, deleteField } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import { useAuthStore } from './store/authStore'
 import { useUpdateStore } from './store/updateStore'
@@ -9,19 +9,29 @@ import { AuthPage } from './pages/AuthPage'
 import { AppLayout } from './components/layout/AppLayout'
 import { UpdateModal } from './components/UpdateModal'
 import { checkForUpdate } from './lib/updater'
+import { installApkUpdate } from './lib/apkUpdate'
 import { initSafeAreaInsets } from './lib/safeArea'
 import { useChatSync } from './hooks/useChatSync'
+import { useCallListener } from './hooks/useCallListener'
 import { initPushNotifications } from './lib/push'
+import { useCallStore } from './store/callStore'
+import { CallModal } from './components/call/CallModal'
+import { IncomingCallSheet } from './components/call/IncomingCallSheet'
 import { firebaseConfigured } from './firebase'
 import { LangProvider } from './contexts/LangContext'
 import { Camera } from '@capacitor/camera'
-import { Capacitor, CapacitorHttp, registerPlugin } from '@capacitor/core'
-import { Filesystem, Directory } from '@capacitor/filesystem'
+import { App as CapApp } from '@capacitor/app'
+import { Capacitor } from '@capacitor/core'
+import { PasscodeLockScreen } from './components/PasscodeLockScreen'
 
-interface ApkInstallerPlugin { install(opts: { path: string }): Promise<void> }
-const ApkInstaller = registerPlugin<ApkInstallerPlugin>('ApkInstaller')
+import { SESSION_ID, SESSION_START } from './lib/session'
 
-export const SESSION_ID = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+function getDeviceInfo() {
+  const ua = navigator.userAgent
+  const platform = /android/i.test(ua) ? 'Android' : /iphone|ipad/i.test(ua) ? 'iOS' : /mac/i.test(ua) ? 'macOS' : /win/i.test(ua) ? 'Windows' : 'Unknown'
+  const browser = /edg/i.test(ua) ? 'Edge' : /chrome/i.test(ua) ? 'Chrome' : /firefox/i.test(ua) ? 'Firefox' : /safari/i.test(ua) ? 'Safari' : 'Browser'
+  return { platform, browser }
+}
 
 function applyStoredSettings() {
   const msgSize = localStorage.getItem('nod_msgFontSize') ?? '14'
@@ -33,13 +43,51 @@ function applyStoredSettings() {
 
 export default function App() {
   const { user, ready, setUser, setReady } = useAuthStore()
-  const { updateInfo, setUpdateInfo } = useUpdateStore()
-  const [updateDismissed, setUpdateDismissed] = useState(false)
+  const { updateInfo, setUpdateInfo, dismissed: updateDismissed, setDismissed: setUpdateDismissed } = useUpdateStore()
   const [downloading, setDownloading] = useState(false)
+  const [updateError, setUpdateError] = useState<string | null>(null)
+  const [locked, setLocked] = useState(false)
+  const prevUidRef = useRef<string | null>(null)
 
   useChatSync()
+  useCallListener(user?.uid)
+  const activeCall = useCallStore((s) => s.activeCall)
+  const endCall = useCallStore((s) => s.endCall)
 
   useEffect(() => { applyStoredSettings() }, [])
+
+  useEffect(() => {
+    if (user?.uid !== prevUidRef.current) {
+      prevUidRef.current = user?.uid ?? null
+      if (user?.uid) {
+        const shouldLock = localStorage.getItem('nod_sec_passcode') === 'true' || localStorage.getItem('nod_sec_passkeys') === 'true'
+        setLocked(shouldLock)
+      } else {
+        setLocked(false)
+      }
+    }
+  }, [user?.uid])
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return
+    let handle: { remove: () => void } | null = null
+    CapApp.addListener('appStateChange', ({ isActive }) => {
+      if (isActive && user?.uid) {
+        const shouldLock = localStorage.getItem('nod_sec_passcode') === 'true' || localStorage.getItem('nod_sec_passkeys') === 'true'
+        if (shouldLock) setLocked(true)
+      }
+    }).then(h => { handle = h })
+    return () => { handle?.remove() }
+  }, [user?.uid])
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return
+    let handle: { remove: () => void } | null = null
+    CapApp.addListener('backButton', ({ canGoBack }) => {
+      if (canGoBack) window.history.back()
+    }).then(h => { handle = h })
+    return () => { handle?.remove() }
+  }, [])
 
   useEffect(() => initSafeAreaInsets(), [])
 
@@ -47,10 +95,6 @@ export default function App() {
     async function requestPermissions() {
       if (!Capacitor.isNativePlatform()) return
       try { await Camera.requestPermissions({ permissions: ['camera', 'photos'] }) } catch {}
-      try {
-        const s = await navigator.mediaDevices.getUserMedia({ audio: true })
-        s.getTracks().forEach(t => t.stop())
-      } catch {}
     }
     requestPermissions()
   }, [])
@@ -68,63 +112,93 @@ export default function App() {
   }, [user?.uid])
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+    let userUnsub: (() => void) | undefined
+
+    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
+      userUnsub?.()
+      userUnsub = undefined
+
       if (!firebaseUser) {
         setUser(null)
         setReady(true)
         return
       }
-      const userUnsub = onSnapshot(doc(db, 'users', firebaseUser.uid), (snap) => {
-        if (snap.exists()) {
-          const u = { uid: snap.id, ...snap.data() } as User
-          // Sign out if another session triggered "terminate all"
-          const terminateExcept = snap.data().terminateExcept as string | undefined
-          if (terminateExcept && terminateExcept !== SESSION_ID) {
-            signOut(auth)
-            return
-          }
-          setUser(u)
+
+      const userRef = doc(db, 'users', firebaseUser.uid)
+      const { platform, browser } = getDeviceInfo()
+      let sessionWritten = false
+      userUnsub = onSnapshot(userRef, (snap) => {
+        if (!snap.exists()) {
+          setReady(true)
+          return
         }
+
+        const data = snap.data()
+        const terminateExcept = data.terminateExcept as string | undefined
+        const sessionKickAt = data.sessionKickAt as number | undefined
+
+        if (
+          sessionKickAt &&
+          sessionKickAt > SESSION_START &&
+          terminateExcept &&
+          terminateExcept !== SESSION_ID
+        ) {
+          void updateDoc(userRef, { [`sessions.${SESSION_ID}`]: deleteField() }).catch(() => {})
+          signOut(auth)
+          return
+        }
+
+        if (!sessionWritten) {
+          sessionWritten = true
+          const existingSessions = (data.sessions ?? {}) as Record<string, { platform: string }>
+          const updates: Record<string, any> = {
+            online: true,
+            lastSeen: Date.now(),
+            terminateExcept: SESSION_ID,
+            [`sessions.${SESSION_ID}`]: { platform, browser, startedAt: SESSION_START, lastActive: Date.now() },
+          }
+          for (const [id, s] of Object.entries(existingSessions)) {
+            if (id !== SESSION_ID && s.platform === platform) {
+              updates[`sessions.${id}`] = deleteField()
+            }
+          }
+          void updateDoc(userRef, updates).catch(() => {})
+        }
+
+        setUser({ uid: snap.id, ...data } as User)
         setReady(true)
       })
-      await updateDoc(doc(db, 'users', firebaseUser.uid), { online: true, lastSeen: Date.now() }).catch(() => {})
-      return () => userUnsub()
     })
 
     window.addEventListener('beforeunload', () => {
       const uid = auth.currentUser?.uid
-      if (uid) updateDoc(doc(db, 'users', uid), { online: false, lastSeen: Date.now() }).catch(() => {})
+      if (uid) updateDoc(doc(db, 'users', uid), {
+        online: false,
+        lastSeen: Date.now(),
+        [`sessions.${SESSION_ID}`]: deleteField(),
+      }).catch(() => {})
     })
 
-    return unsub
+    return () => {
+      userUnsub?.()
+      unsub()
+    }
   }, [])
 
   useEffect(() => {
     checkForUpdate().then((info) => {
       if (info) setUpdateInfo(info)
-    })
+    }).catch(() => {})
   }, [])
 
   async function handleUpdate() {
     if (!updateInfo) return
     setDownloading(true)
+    setUpdateError(null)
     try {
-      if (Capacitor.isNativePlatform()) {
-        const res = await CapacitorHttp.get({
-          url: updateInfo.downloadUrl,
-          headers: { Accept: 'application/octet-stream' },
-          responseType: 'blob',
-        })
-        if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`)
-        const base64 = res.data as string
-        await Filesystem.writeFile({ path: 'update.apk', data: base64, directory: Directory.Cache })
-        const { uri } = await Filesystem.getUri({ path: 'update.apk', directory: Directory.Cache })
-        await ApkInstaller.install({ path: uri.replace('file://', '') })
-      } else {
-        window.open(updateInfo.downloadUrl, '_blank')
-      }
-    } catch (e: any) {
-      alert(`Update failed: ${e?.message ?? e}`)
+      await installApkUpdate(updateInfo.downloadUrl)
+    } catch (e: unknown) {
+      setUpdateError(e instanceof Error ? e.message : 'Update failed')
     } finally {
       setDownloading(false)
     }
@@ -154,14 +228,28 @@ export default function App() {
   return (
     <LangProvider>
       {!user ? <AuthPage /> : <AppLayout />}
+      {user && <IncomingCallSheet />}
+      {user && activeCall && (
+        <CallModal
+          callId={activeCall.callId}
+          chatId={activeCall.chatId}
+          type={activeCall.type}
+          role={activeCall.role}
+          members={activeCall.members}
+          participantIds={activeCall.participantIds}
+          onClose={endCall}
+        />
+      )}
       {showUpdate && (
         <UpdateModal
           info={updateInfo!}
           downloading={downloading}
+          error={updateError}
           onUpdate={handleUpdate}
           onLater={updateInfo?.force ? undefined : () => setUpdateDismissed(true)}
         />
       )}
+      {user && locked && <PasscodeLockScreen onUnlock={() => setLocked(false)} />}
     </LangProvider>
   )
 }

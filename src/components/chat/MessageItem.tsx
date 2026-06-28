@@ -81,6 +81,7 @@ interface Props {
 export function MessageItem({ msg, sender, isOwn, isRead, onReply, onReact, onContextMenu, selectionMode, selected, onSelect }: Props) {
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const touchPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const didLongPress = useRef(false)
 
   if (msg.deleted) {
     return (
@@ -94,14 +95,19 @@ export function MessageItem({ msg, sender, isOwn, isRead, onReply, onReact, onCo
 
   function handleTouchStart(e: React.TouchEvent) {
     if (selectionMode) return
+    didLongPress.current = false
     const t = e.touches[0]
     touchPos.current = { x: t.clientX, y: t.clientY }
-    holdTimer.current = setTimeout(() => { onSelect?.(msg) }, 500)
+    holdTimer.current = setTimeout(() => {
+      didLongPress.current = true
+      onSelect?.(msg)
+    }, 500)
   }
   function handleTouchEnd() {
     if (holdTimer.current) clearTimeout(holdTimer.current)
   }
   function handleTap() {
+    if (didLongPress.current) { didLongPress.current = false; return }
     if (selectionMode) onSelect?.(msg)
   }
   function handleContextMenuEvt(e: React.MouseEvent) {

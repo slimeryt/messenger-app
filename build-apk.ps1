@@ -32,17 +32,12 @@ if ($Release) {
     $meta = [ordered]@{
         type        = "ui"
         force       = $false
-        notes       = "Big UI update"
+        notes       = "Bug fixes"
         changelog   = @(
-            "Emoji picker: flag images render inline in the text input (flagcdn.com)",
-            "Message selection mode: hold to select on mobile, right-click on PC",
-            "Selection header morphs with smooth animations (arrow spins to X)",
-            "Selection bottom bar with Reply and Forward buttons",
-            "Chat header now shows correct DM contact (not yourself)",
-            "Online/offline status with live last-seen in chat header",
-            "Removed separators in chat list"
+            "Fix: long press on mobile no longer immediately closes the selection mode",
+            "Fix: dragging back from a chat no longer misplaces the entire app layout"
         )
-        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=0 }
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=1 }
         downloadUrl = $downloadUrl
     }
 
