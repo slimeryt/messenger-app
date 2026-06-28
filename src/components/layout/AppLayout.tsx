@@ -36,13 +36,7 @@ export function AppLayout() {
     setPill({ left: btnRect.left - navRect.left, width: btnRect.width, ready: true })
   }, [tab])
 
-  // Swipe right-from-edge to go back from chat, with drag effect
-  const dragX = useRef(0)
-  const dragStartX = useRef(0)
-  const dragStartY = useRef(0)
-  const dragLocked = useRef<'h' | 'v' | null>(null)
   const dragEl = useRef<HTMLDivElement>(null)
-  const dragging = useRef(false)
 
   // Tab drag-to-switch
   const tabContentRef = useRef<HTMLDivElement>(null)
@@ -111,48 +105,11 @@ export function AppLayout() {
     }
   }
 
-  function onChatTouchStart(e: React.TouchEvent) {
-    if (e.touches[0].clientX > 80) return
-    dragStartX.current = e.touches[0].clientX
-    dragStartY.current = e.touches[0].clientY
-    dragLocked.current = null
-    dragging.current = true
-    dragX.current = 0
-  }
-  function onChatTouchMove(e: React.TouchEvent) {
-    if (!dragging.current) return
-    const dx = e.touches[0].clientX - dragStartX.current
-    const dy = e.touches[0].clientY - dragStartY.current
-    if (!dragLocked.current) {
-      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
-      dragLocked.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
-    }
-    if (dragLocked.current !== 'h' || dx < 0) return
-    dragX.current = dx
-    if (dragEl.current) dragEl.current.style.transform = `translateX(${dx}px)`
-  }
-  function onChatTouchEnd() {
-    if (!dragging.current || dragLocked.current !== 'h') { dragging.current = false; return }
-    dragging.current = false
-    if (dragX.current > 100) {
-      setActiveChatId(null)
-    } else {
-      if (dragEl.current) {
-        dragEl.current.style.transition = 'transform 0.25s cubic-bezier(0.25,1,0.5,1)'
-        dragEl.current.style.transform = 'translateX(0)'
-        setTimeout(() => { if (dragEl.current) dragEl.current.style.transition = '' }, 260)
-      }
-    }
-    dragX.current = 0
-  }
 
   if (activeChatId) {
     return (
       <div
         ref={dragEl}
-        onTouchStart={onChatTouchStart}
-        onTouchMove={onChatTouchMove}
-        onTouchEnd={onChatTouchEnd}
         style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)', paddingTop: 'env(safe-area-inset-top)' }}
       >
         <ChatPage onBack={() => setActiveChatId(null)} />
@@ -337,7 +294,7 @@ function ContactsScreen() {
         <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>Contacts</div>
 
         {/* Search bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '8px 12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-2)', borderRadius: 12, padding: '8px 12px' }}>
           <Search size={15} color="var(--text-3)" />
           <input
             ref={searchRef}
@@ -358,7 +315,7 @@ function ContactsScreen() {
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
         {/* Invite friends + Recent calls */}
-        <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+        <div style={{ background: 'var(--bg-2)', borderRadius: 16, overflow: 'hidden' }}>
           <button
             onClick={inviteFriend}
             style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '5px 14px', textAlign: 'left' }}
@@ -394,7 +351,7 @@ function ContactsScreen() {
         </div>
 
         {/* Contact list */}
-        <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+        <div style={{ background: 'var(--bg-2)', borderRadius: 16, overflow: 'hidden' }}>
           {loading ? (
             <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>Loading…</div>
           ) : filtered.length === 0 ? (

@@ -34,9 +34,9 @@ if ($Release) {
         force       = $false
         notes       = "Bug fixes"
         changelog   = @(
-            "Fix: override onBackPressed to fully block all back navigation paths"
+            "Removed swipe-back gesture from chat page"
         )
-        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=8 }
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=9 }
         downloadUrl = $downloadUrl
     }
 
