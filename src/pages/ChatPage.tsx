@@ -3,11 +3,13 @@ import {
   doc,
   onSnapshot,
   getDoc,
+  updateDoc,
   collection,
   query,
   onSnapshot as onSnap,
 } from 'firebase/firestore'
 import { db } from '../firebase'
+import { useMessageStore } from '../store/messageStore'
 import { useChatStore } from '../store/chatStore'
 import { useTypingStore } from '../store/typingStore'
 import { useAuthStore } from '../store/authStore'
@@ -16,10 +18,10 @@ import { ChatHeader } from '../components/chat/ChatHeader'
 import { MessageList } from '../components/chat/MessageList'
 import { MessageInput } from '../components/chat/MessageInput'
 import { TypingIndicator } from '../components/chat/TypingIndicator'
-import { CallModal } from '../components/call/CallModal'
 import { PinnedModal } from '../components/chat/PinnedModal'
+import { useCallStore } from '../store/callStore'
 import { UserProfileSheet } from '../components/chat/UserProfileSheet'
-import { ArrowLeft, MoreVertical } from 'lucide-react'
+import { ArrowLeft, MoreVertical, CornerUpLeft, CornerUpRight } from 'lucide-react'
 
 interface ChatPageProps { onBack?: () => void }
 
@@ -131,11 +133,47 @@ function RealChatPage({ chatId, onBack }: { chatId: string; onBack?: () => void 
   const [chat, setChat] = useState<Chat | null>(null)
   const [members, setMembers] = useState<Record<string, User>>({})
   const [replyTo, setReplyTo] = useState<Message | null>(null)
-  const [callType, setCallType] = useState<'audio' | 'video' | null>(null)
+  const [editMsg, setEditMsg] = useState<Message | null>(null)
   const [showPinned, setShowPinned] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [otherStatus, setOtherStatus] = useState<{ online: boolean; lastSeen: number } | null>(null)
+  const startOutgoingCall = useCallStore((s) => s.startOutgoingCall)
   const [profileUser, setProfileUser] = useState<User | null>(null)
   const setTyping = useTypingStore((s) => s.setTyping)
   const me = useAuthStore((s) => s.user)
+  const messages = useMessageStore((s) => s.messages[chatId] ?? [])
+
+  function handleToggleSelect(msg: Message) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(msg.id)) next.delete(msg.id)
+      else next.add(msg.id)
+      return next
+    })
+  }
+
+  function clearSelection() { setSelectedIds(new Set()) }
+
+  async function deleteSelected() {
+    await Promise.all(
+      [...selectedIds].map((id) =>
+        updateDoc(doc(db, 'chats', chatId, 'messages', id), { deleted: true, content: '' })
+      )
+    )
+    clearSelection()
+  }
+
+  function copySelected() {
+    const texts = messages
+      .filter((m) => selectedIds.has(m.id) && m.type === 'text')
+      .map((m) => m.content)
+      .join('\n')
+    navigator.clipboard.writeText(texts).catch(() => {})
+    clearSelection()
+  }
+
+  const canDelete = [...selectedIds].every((id) => messages.find((m) => m.id === id)?.senderId === me?.uid)
+  const canCopy = [...selectedIds].some((id) => messages.find((m) => m.id === id)?.type === 'text')
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'chats', chatId), (snap) => {
@@ -143,6 +181,25 @@ function RealChatPage({ chatId, onBack }: { chatId: string; onBack?: () => void 
     })
     return unsub
   }, [chatId])
+
+  useEffect(() => {
+    if (!chat || chat.type !== 'dm' || !me?.uid) return
+    const otherUid = chat.memberIds.find((id) => id !== me.uid)
+    if (!otherUid) return
+    const unsub = onSnapshot(doc(db, 'users', otherUid), (snap) => {
+      if (snap.exists()) {
+        const d = snap.data()
+        setOtherStatus({ online: d.online ?? false, lastSeen: d.lastSeen ?? 0 })
+      }
+    })
+    return unsub
+  }, [chat?.type, chat?.memberIds.join(','), me?.uid])
+
+  // Mark as read when chat is opened
+  useEffect(() => {
+    if (!me?.uid) return
+    updateDoc(doc(db, 'chats', chatId), { [`lastRead.${me.uid}`]: Date.now() }).catch(() => {})
+  }, [chatId, me?.uid])
 
   useEffect(() => {
     if (!chat) return
@@ -192,24 +249,61 @@ function RealChatPage({ chatId, onBack }: { chatId: string; onBack?: () => void 
         chat={chat}
         memberCount={chat.memberIds.length}
         onBack={onBack}
-        onCall={(t) => setCallType(t)}
+        onCall={(t) => startOutgoingCall({ chatId, type: t, members, participantIds: chat.memberIds })}
         onShowPinned={() => setShowPinned(true)}
         onShowMenu={() => {}}
         onShowProfile={async () => {
           const snap = await getDoc(doc(db, 'users', otherUid))
           if (snap.exists()) setProfileUser({ uid: snap.id, ...snap.data() } as User)
         }}
+        selectionCount={selectedIds.size}
+        onClearSelection={clearSelection}
+        onDeleteSelected={deleteSelected}
+        onCopySelected={copySelected}
+        canDelete={canDelete}
+        canCopy={canCopy}
+        dmUser={chat.type === 'dm' && members[otherUid] ? { username: members[otherUid].username, avatarUrl: members[otherUid].avatarUrl, online: otherStatus?.online ?? false, lastSeen: otherStatus?.lastSeen ?? 0 } : undefined}
       />
-      <MessageList chatId={chatId} members={memberSummary} onReply={setReplyTo} />
-      <TypingIndicator chatId={chatId} />
-      <MessageInput
+      <MessageList
         chatId={chatId}
-        replyTo={replyTo}
-        onCancelReply={() => setReplyTo(null)}
-        readOnly={readOnly}
+        members={memberSummary}
+        onReply={setReplyTo}
+        lastRead={chat.lastRead}
+        otherUid={otherUid}
+        onEdit={setEditMsg}
+        selectedIds={selectedIds}
+        onToggleSelect={handleToggleSelect}
       />
-      {callType && (
-        <CallModal chatId={chatId} type={callType} members={members} onClose={() => setCallType(null)} />
+      {selectedIds.size === 0 && <TypingIndicator chatId={chatId} />}
+      {selectedIds.size > 0 ? (
+        <div style={{ display: 'flex', gap: 10, padding: '10px 16px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', background: 'var(--bg)' }}>
+          <button
+            onClick={() => {
+              if (selectedIds.size === 1) {
+                const msg = messages.find((m) => m.id === [...selectedIds][0])
+                if (msg) { setReplyTo(msg); clearSelection() }
+              }
+            }}
+            style={{ flex: 1, height: 42, borderRadius: 999, background: 'var(--bg-3)', border: '1px solid var(--border)', color: 'var(--text)', fontWeight: 600, fontSize: 14, cursor: selectedIds.size === 1 ? 'pointer' : 'not-allowed', opacity: selectedIds.size === 1 ? 1 : 0.4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+          >
+            <CornerUpLeft size={16} /> Reply
+          </button>
+          <button
+            onClick={() => {}}
+            style={{ flex: 1, height: 42, borderRadius: 999, background: 'var(--bg-3)', border: '1px solid var(--border)', color: 'var(--text)', fontWeight: 600, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}
+          >
+            <CornerUpRight size={16} /> Forward
+          </button>
+        </div>
+      ) : (
+        <MessageInput
+          chatId={chatId}
+          replyTo={replyTo}
+          onCancelReply={() => setReplyTo(null)}
+          editMsg={editMsg}
+          onCancelEdit={() => setEditMsg(null)}
+          readOnly={readOnly}
+        />
       )}
       {showPinned && (
         <PinnedModal chatId={chatId} onClose={() => setShowPinned(false)} />
@@ -219,6 +313,14 @@ function RealChatPage({ chatId, onBack }: { chatId: string; onBack?: () => void 
           user={profileUser}
           onClose={() => setProfileUser(null)}
           onMessage={() => setProfileUser(null)}
+          onAudioCall={() => {
+            startOutgoingCall({ chatId, type: 'audio', members, participantIds: chat.memberIds })
+            setProfileUser(null)
+          }}
+          onVideoCall={() => {
+            startOutgoingCall({ chatId, type: 'video', members, participantIds: chat.memberIds })
+            setProfileUser(null)
+          }}
         />
       )}
     </div>

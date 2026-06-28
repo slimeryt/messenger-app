@@ -1,6 +1,6 @@
 import { Message, User } from '../../types'
 import { Avatar } from '../ui/Avatar'
-import { Play, Pause, FileText, CornerUpLeft, ImageIcon } from 'lucide-react'
+import { Play, Pause, FileText, ImageIcon, Check, CheckCheck } from 'lucide-react'
 import { useRef, useState, useEffect } from 'react'
 import { openUrl } from '../../lib/browser'
 
@@ -69,15 +69,18 @@ interface Props {
   msg: Message
   sender: User | null
   isOwn: boolean
+  isRead?: boolean
   onReply: (msg: Message) => void
   onReact: (msgId: string, emoji: string) => void
+  onContextMenu: (msg: Message, x: number, y: number) => void
+  selectionMode?: boolean
+  selected?: boolean
+  onSelect?: (msg: Message) => void
 }
 
-const EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥']
-
-export function MessageItem({ msg, sender, isOwn, onReply, onReact }: Props) {
-  const [showReactions, setShowReactions] = useState(false)
+export function MessageItem({ msg, sender, isOwn, isRead, onReply, onReact, onContextMenu, selectionMode, selected, onSelect }: Props) {
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const touchPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
 
   if (msg.deleted) {
     return (
@@ -89,11 +92,21 @@ export function MessageItem({ msg, sender, isOwn, onReply, onReact }: Props) {
 
   const time = new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
-  function handleHoldStart() {
-    holdTimer.current = setTimeout(() => setShowReactions(true), 500)
+  function handleTouchStart(e: React.TouchEvent) {
+    if (selectionMode) return
+    const t = e.touches[0]
+    touchPos.current = { x: t.clientX, y: t.clientY }
+    holdTimer.current = setTimeout(() => { onSelect?.(msg) }, 500)
   }
-  function handleHoldEnd() {
+  function handleTouchEnd() {
     if (holdTimer.current) clearTimeout(holdTimer.current)
+  }
+  function handleTap() {
+    if (selectionMode) onSelect?.(msg)
+  }
+  function handleContextMenuEvt(e: React.MouseEvent) {
+    e.preventDefault()
+    onSelect?.(msg)
   }
 
   const reactionEntries = Object.entries(msg.reactions ?? {}).filter(([, uids]) => uids.length > 0)
@@ -107,14 +120,39 @@ export function MessageItem({ msg, sender, isOwn, onReply, onReact }: Props) {
         padding: '2px 16px',
         alignItems: 'flex-end',
         position: 'relative',
+        userSelect: 'none',
+        background: selected ? 'rgba(var(--accent-rgb, 99,102,241),0.12)' : 'transparent',
+        transition: 'background 0.15s',
       }}
-      onMouseDown={handleHoldStart}
-      onMouseUp={handleHoldEnd}
-      onTouchStart={handleHoldStart}
-      onTouchEnd={handleHoldEnd}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchEnd}
+      onClick={handleTap}
+      onContextMenu={handleContextMenuEvt}
     >
-      {!isOwn && (
+      {selectionMode && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0, alignSelf: 'center',
+          order: isOwn ? 1 : -1,
+          marginInline: 4,
+        }}>
+          <div style={{
+            width: 20, height: 20, borderRadius: '50%',
+            border: `2px solid ${selected ? 'var(--accent)' : 'var(--text-3)'}`,
+            background: selected ? 'var(--accent)' : 'transparent',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.15s',
+          }}>
+            {selected && <Check size={11} color="#fff" strokeWidth={3} />}
+          </div>
+        </div>
+      )}
+      {!isOwn && !selectionMode && (
         <Avatar url={sender?.avatarUrl ?? null} name={sender?.username ?? '?'} size={32} />
+      )}
+      {!isOwn && selectionMode && (
+        <div style={{ width: 32, flexShrink: 0 }} />
       )}
 
       <div style={{ maxWidth: '70%', display: 'flex', flexDirection: 'column', gap: 2, alignItems: isOwn ? 'flex-end' : 'flex-start' }}>
@@ -198,49 +236,17 @@ export function MessageItem({ msg, sender, isOwn, onReply, onReact }: Props) {
           </div>
         )}
 
-        <span style={{ fontSize: 11, color: 'var(--text-3)', paddingInline: 4 }}>
-          {time}{msg.edited && ' · edited'}
-        </span>
-      </div>
-
-      <button
-        onClick={() => onReply(msg)}
-        style={{ color: 'var(--text-3)', opacity: 0, padding: 4, transition: 'opacity 0.1s' }}
-        className="reply-btn"
-        title="Reply"
-      >
-        <CornerUpLeft size={15} />
-      </button>
-
-      {showReactions && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '100%',
-            [isOwn ? 'right' : 'left']: 16,
-            background: 'var(--bg-2)',
-            border: '1px solid var(--border)',
-            borderRadius: 20,
-            padding: '6px 10px',
-            display: 'flex',
-            gap: 8,
-            zIndex: 10,
-          }}
-          onMouseLeave={() => setShowReactions(false)}
-        >
-          {EMOJIS.map((e) => (
-            <button
-              key={e}
-              onClick={() => { onReact(msg.id, e); setShowReactions(false) }}
-              style={{ fontSize: 18, cursor: 'pointer', lineHeight: 1 }}
-            >
-              {e}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingInline: 4 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+            {time}{msg.edited && ' · edited'}
+          </span>
+          {isOwn && (
+            isRead
+              ? <CheckCheck size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+              : <Check size={13} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+          )}
         </div>
-      )}
-
-      <style>{`.reply-btn:hover, [style*="display: flex"]:hover .reply-btn { opacity: 1 }`}</style>
+      </div>
     </div>
   )
 }
@@ -254,7 +260,6 @@ function AudioMessage({ url, isOwn }: { url: string; isOwn: boolean }) {
   const [barHeights, setBarHeights] = useState<number[]>([])
   const bars = 28
 
-  // Decode audio and extract real waveform
   useEffect(() => {
     async function extractWaveform() {
       try {
@@ -273,7 +278,6 @@ function AudioMessage({ url, isOwn }: { url: string; isOwn: boolean }) {
         setBarHeights(heights)
         ctx.close()
       } catch {
-        // fallback: random-ish heights
         setBarHeights(Array.from({ length: bars }, (_, i) => 4 + Math.floor(Math.abs(Math.sin(i * 1.3)) * 16)))
       }
     }
@@ -321,18 +325,13 @@ function AudioMessage({ url, isOwn }: { url: string; isOwn: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 200, maxWidth: 260 }}>
       <audio ref={audioRef} src={url} preload="metadata" />
-
-      {/* Play/Pause */}
       <button
         onClick={togglePlay}
         style={{ width: 36, height: 36, borderRadius: '50%', background: isOwn ? 'rgba(255,255,255,0.2)' : 'var(--bg-4)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: isOwn ? '#fff' : 'var(--text)' }}
       >
         {playing ? <Pause size={16} /> : <Play size={16} />}
       </button>
-
-      {/* Waveform + time */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {/* Waveform bars (seekable) */}
         {(() => {
           const heights = barHeights.length ? barHeights : Array.from({ length: bars }, () => 8)
           const renderBars = (color: string) => (
@@ -351,8 +350,6 @@ function AudioMessage({ url, isOwn }: { url: string; isOwn: boolean }) {
             </div>
           )
         })()}
-
-        {/* Time */}
         <span style={{ fontSize: 10, color: dim, fontVariantNumeric: 'tabular-nums' }}>
           {playing || current > 0 ? fmt(current) : fmt(duration)}
         </span>

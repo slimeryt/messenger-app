@@ -9,9 +9,9 @@ export interface VersionCounters {
 export const VERSION: VersionCounters = {
   major: 1,
   minor: 0,
-  ui: 4,
-  bugfixMajor: 1,
-  bugfixMinor: 3,
+  ui: 5,
+  bugfixMajor: 0,
+  bugfixMinor: 0,
 }
 
 export const APP_VERSION =

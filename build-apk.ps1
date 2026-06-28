@@ -27,14 +27,47 @@ Copy-Item $apkSrc $apkDest -Force
 if ($Release) {
     Write-Host "Creating GitHub release $Release..." -ForegroundColor Yellow
     Set-Location $root
-    $notes = '{"type":"bugfix-minor","force":false,"notes":"Bug fixes","changelog":["Fix startup crash on Android","Firebase push configured (google-services.json)","FCM token registration for future background alerts"],"counters":{"major":1,"minor":0,"ui":4,"bugfixMajor":1,"bugfixMinor":3}}'
-    $notesFile = [System.IO.Path]::GetTempFileName()
-    [System.IO.File]::WriteAllText($notesFile, $notes, (New-Object System.Text.UTF8Encoding $false))
-    try { gh release delete $Release --repo slimeryt/messenger-app --yes 2>$null } catch {}
-    gh release create $Release "$apkSrc#Nod.apk" --repo slimeryt/messenger-app --title $Release --notes-file $notesFile
-    Remove-Item $notesFile -Force
-    Write-Host "Release $Release published!" -ForegroundColor Green
     $downloadUrl = "https://github.com/slimeryt/messenger-app/releases/download/$Release/Nod.apk"
+
+    $meta = [ordered]@{
+        type        = "ui"
+        force       = $false
+        notes       = "Big UI update"
+        changelog   = @(
+            "Emoji picker: flag images render inline in the text input (flagcdn.com)",
+            "Message selection mode: hold to select on mobile, right-click on PC",
+            "Selection header morphs with smooth animations (arrow spins to X)",
+            "Selection bottom bar with Reply and Forward buttons",
+            "Chat header now shows correct DM contact (not yourself)",
+            "Online/offline status with live last-seen in chat header",
+            "Removed separators in chat list"
+        )
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=0 }
+        downloadUrl = $downloadUrl
+    }
+
+    # version.json — fetched by the app at runtime via raw.githubusercontent.com
+    $versionJson = $meta | ConvertTo-Json -Compress
+    [System.IO.File]::WriteAllText("$root\public\version.json", $versionJson, (New-Object System.Text.UTF8Encoding $false))
+
+    # Push so raw.githubusercontent.com serves the new version immediately
+    Write-Host "Pushing version.json..." -ForegroundColor Yellow
+    git -C $root add "public/version.json"
+    git -C $root commit -m "chore: update version.json to $Release"
+    git -C $root push
+
+    # GitHub release body (informational only)
+    $meta.Remove("downloadUrl")
+    $releaseBody = $meta | ConvertTo-Json -Compress
+    $notesFile = [System.IO.Path]::GetTempFileName()
+    [System.IO.File]::WriteAllText($notesFile, $releaseBody, (New-Object System.Text.UTF8Encoding $false))
+    $releaseApk = Join-Path $env:TEMP "Nod.apk"
+    Copy-Item $apkSrc $releaseApk -Force
+    try { gh release delete $Release --repo slimeryt/messenger-app --yes 2>$null } catch {}
+    gh release create $Release $releaseApk --repo slimeryt/messenger-app --title $Release --notes-file $notesFile
+    Remove-Item $notesFile -Force
+    Remove-Item $releaseApk -Force -ErrorAction SilentlyContinue
+    Write-Host "Release $Release published!" -ForegroundColor Green
     Write-Host "Sending to Discord..." -ForegroundColor Yellow
     $msg = "**Nod $Release** - $downloadUrl"
     $status = curl.exe -s -o NUL -w "%{http_code}" -X POST -F "content=$msg" $webhook
