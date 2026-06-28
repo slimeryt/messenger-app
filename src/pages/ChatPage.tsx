@@ -17,7 +17,6 @@ import { Chat, Message, User } from '../types'
 import { ChatHeader } from '../components/chat/ChatHeader'
 import { MessageList } from '../components/chat/MessageList'
 import { MessageInput } from '../components/chat/MessageInput'
-import { TypingIndicator } from '../components/chat/TypingIndicator'
 import { PinnedModal } from '../components/chat/PinnedModal'
 import { useCallStore } from '../store/callStore'
 import { UserProfileSheet } from '../components/chat/UserProfileSheet'
@@ -275,7 +274,6 @@ function RealChatPage({ chatId, onBack }: { chatId: string; onBack?: () => void 
         selectedIds={selectedIds}
         onToggleSelect={handleToggleSelect}
       />
-      {selectedIds.size === 0 && <TypingIndicator chatId={chatId} />}
       {selectedIds.size > 0 ? (
         <div style={{ display: 'flex', gap: 10, padding: '10px 16px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', background: 'var(--bg)' }}>
           <button

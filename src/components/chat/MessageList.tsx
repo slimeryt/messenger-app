@@ -16,6 +16,7 @@ import { useMessageStore } from '../../store/messageStore'
 import { useAuthStore } from '../../store/authStore'
 import { Message } from '../../types'
 import { MessageItem } from './MessageItem'
+import { TypingIndicator } from './TypingIndicator'
 import { CornerUpLeft, Copy, Pencil, Trash2, Pin } from 'lucide-react'
 
 interface Props {
@@ -204,6 +205,7 @@ export function MessageList({ chatId, members, onReply, lastRead, otherUid, isGr
           })}
         </div>
       ))}
+      <TypingIndicator chatId={chatId} members={members} />
       <div ref={bottomRef} />
 
       {ctx && createPortal(

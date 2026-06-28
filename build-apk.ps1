@@ -30,14 +30,13 @@ if ($Release) {
     $downloadUrl = "https://github.com/slimeryt/messenger-app/releases/download/$Release/Nod.apk"
 
     $meta = [ordered]@{
-        type        = "bugfixMinor"
+        type        = "ui"
         force       = $false
-        notes       = "Read receipts"
+        notes       = "Typing animations"
         changelog   = @(
-            "Read receipts in DMs (single tick = sent, double tick = seen)",
-            "Group chats show reader avatars under each message"
+            "Typing indicator is now a chat bubble with avatar and animated dots"
         )
-        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=15 }
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=16 }
         downloadUrl = $downloadUrl
     }
 
