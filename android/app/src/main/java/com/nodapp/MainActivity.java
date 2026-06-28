@@ -23,6 +23,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(ApkInstallerPlugin.class);
         registerPlugin(CallMediaPlugin.class);
+        registerPlugin(GalleryPlugin.class);
         super.onCreate(savedInstanceState);
         // Consume back gesture so Android plays no animation and does not exit the app
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {

@@ -2,6 +2,69 @@ import { useState, useRef, useEffect } from 'react'
 import { Search, Smile, Users, PawPrint, UtensilsCrossed, Trophy, Plane, Lightbulb, Heart, Clock, Leaf, Flag } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
+const GIPHY_KEY = 'r36SL4ieXgsCP3j9pml2DcG8vIUVRQwQ'
+
+interface GifResult { id: string; title: string; previewUrl: string; gifUrl: string }
+
+function parseGifs(data: any[]): GifResult[] {
+  return data.map(g => ({
+    id: g.id,
+    title: g.title ?? '',
+    previewUrl: g.images?.fixed_height_small?.url ?? g.images?.downsized_small?.url ?? '',
+    gifUrl: g.images?.downsized?.url ?? g.images?.original?.url ?? '',
+  }))
+}
+
+function MediaPicker({ onSelect, type }: { onSelect: (url: string) => void; type: 'gifs' | 'stickers' }) {
+  const [query, setQuery] = useState('')
+  const [gifs, setGifs] = useState<GifResult[]>([])
+  const [loading, setLoading] = useState(true)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => { setQuery(''); setGifs([]); load('') }, [type])
+
+  async function load(q: string) {
+    setLoading(true)
+    try {
+      const base = type === 'stickers' ? 'stickers' : 'gifs'
+      const endpoint = q.trim()
+        ? `https://api.giphy.com/v1/${base}/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(q)}&limit=24&rating=pg`
+        : `https://api.giphy.com/v1/${base}/trending?api_key=${GIPHY_KEY}&limit=24&rating=pg`
+      const res = await fetch(endpoint)
+      const json = await res.json()
+      setGifs(parseGifs(json.data ?? []))
+    } catch { setGifs([]) }
+    setLoading(false)
+  }
+
+  function handleSearch(q: string) {
+    setQuery(q)
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => load(q), 400)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 10px 4px', background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: 20, padding: '6px 12px', flexShrink: 0 }}>
+        <Search size={13} color="var(--text-3)" />
+        <input value={query} onChange={e => handleSearch(e.target.value)} placeholder={type === 'stickers' ? 'Search stickers…' : 'Search GIFs…'} style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 13, color: 'var(--text)' }} />
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 6px 48px' }}>
+        {loading
+          ? <div style={{ display: 'flex', justifyContent: 'center', padding: 24, color: 'var(--text-3)', fontSize: 13 }}>Loading…</div>
+          : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+              {gifs.map(gif => (
+                <button key={gif.id} onClick={() => onSelect(gif.gifUrl)} style={{ borderRadius: 8, overflow: 'hidden', display: 'block', width: '100%' }}>
+                  <img src={gif.previewUrl} alt={gif.title} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} />
+                </button>
+              ))}
+            </div>
+        }
+      </div>
+    </div>
+  )
+}
+
 function codeToFlagEmoji(code: string) {
   return code.toUpperCase().split('').map((c) => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65)).join('')
 }
@@ -127,11 +190,15 @@ function LazySection({ label, emojis, flags, onSelect, onSelectFlag, innerRef, s
 interface Props {
   onSelect: (emoji: string) => void
   onSelectFlag?: (code: string) => void
+  onSelectGif?: (url: string) => void
   onClose: () => void
   isClosing?: boolean
 }
 
-export function EmojiPicker({ onSelect, onSelectFlag, onClose, isClosing }: Props) {
+type Tab = 'emoji' | 'gifs' | 'stickers'
+
+export function EmojiPicker({ onSelect, onSelectFlag, onSelectGif, onClose, isClosing }: Props) {
+  const [tab, setTab] = useState<Tab>('emoji')
   const [cat, setCat] = useState(0)
   const [search, setSearch] = useState('')
   const [recent, setRecent] = useState<string[]>(() => {
@@ -183,7 +250,7 @@ export function EmojiPicker({ onSelect, onSelectFlag, onClose, isClosing }: Prop
       }}
     >
       {/* Filter row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', flexShrink: 0 }}>
+      <div style={{ display: tab === 'emoji' ? 'flex' : 'none', alignItems: 'center', gap: 8, padding: '6px 8px', flexShrink: 0 }}>
         <button
           onClick={scrollToRecent}
           style={{
@@ -222,36 +289,64 @@ export function EmojiPicker({ onSelect, onSelectFlag, onClose, isClosing }: Prop
 
       {/* Scrollable area + floating search */}
       <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        <div style={{ position: 'absolute', top: 8, left: 10, right: 10, zIndex: 10, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: 20, padding: '6px 12px', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
-          <Search size={13} color="var(--text-3)" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search emoji…"
-            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 13, color: 'var(--text)' }}
-          />
-        </div>
+        {tab === 'emoji' && (
+          <div style={{ position: 'absolute', top: 8, left: 10, right: 10, zIndex: 10, display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-3)', border: '1px solid var(--border)', borderRadius: 20, padding: '6px 12px', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
+            <Search size={13} color="var(--text-3)" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search emoji…"
+              style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 13, color: 'var(--text)' }}
+            />
+          </div>
+        )}
 
         <div
           ref={scrollRef}
-          style={{ position: 'absolute', inset: 0, overflowY: 'auto', paddingTop: 52, willChange: 'transform' }}
+          style={{ position: 'absolute', inset: 0, overflowY: tab === 'emoji' ? 'auto' : 'hidden', paddingTop: tab === 'emoji' ? 52 : 0, paddingBottom: 48, willChange: 'transform' }}
         >
-          {searchResults ? (
-            <EmojiGrid emojis={searchResults} onSelect={handleSelect} />
+          {tab === 'emoji' ? (
+            searchResults ? (
+              <EmojiGrid emojis={searchResults} onSelect={handleSelect} />
+            ) : (
+              sections.map((sec, si) => (
+                <LazySection
+                  key={si}
+                  label={sec.label}
+                  emojis={sec.emojis}
+                  flags={sec.flags}
+                  onSelect={handleSelect}
+                  onSelectFlag={onSelectFlag}
+                  innerRef={(el) => { sectionRefs.current[si] = el }}
+                  scrollRoot={scrollRef.current}
+                />
+              ))
+            )
+          ) : tab === 'gifs' ? (
+            <MediaPicker type="gifs" onSelect={(url) => { onSelectGif?.(url); onClose() }} />
           ) : (
-            sections.map((sec, si) => (
-              <LazySection
-                key={si}
-                label={sec.label}
-                emojis={sec.emojis}
-                flags={sec.flags}
-                onSelect={handleSelect}
-                onSelectFlag={onSelectFlag}
-                innerRef={(el) => { sectionRefs.current[si] = el }}
-                scrollRoot={scrollRef.current}
-              />
-            ))
+            <MediaPicker type="stickers" onSelect={(url) => { onSelectGif?.(url); onClose() }} />
           )}
+        </div>
+
+        {/* Floating tab pill */}
+        <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', zIndex: 20, display: 'flex', background: 'var(--bg-3)', borderRadius: 999, padding: '3px', gap: 2, boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
+          {(['emoji', 'gifs', 'stickers'] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              style={{
+                padding: '5px 14px', borderRadius: 999, fontSize: 13, fontWeight: 600,
+                background: tab === t ? 'rgba(160,160,160,0.35)' : 'transparent',
+                color: tab === t ? '#fff' : 'var(--text-3)',
+                border: 'none', cursor: 'pointer',
+                transition: 'background 0.15s, color 0.15s',
+                textTransform: 'capitalize',
+              }}
+            >
+              {t === 'gifs' ? 'GIFs' : t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
         </div>
       </div>
     </div>

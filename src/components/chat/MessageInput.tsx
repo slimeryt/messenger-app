@@ -423,6 +423,7 @@ export function MessageInput({ chatId, replyTo, onCancelReply, editMsg, onCancel
           isClosing={emojiPickerClosing}
           onSelect={(e) => { insertEmoji(e); closeEmojiPicker() }}
           onSelectFlag={(code) => { insertFlag(code); closeEmojiPicker() }}
+          onSelectGif={async (url) => { closeEmojiPicker(); await sendMessage('GIF', 'image', url, { name: 'gif', size: 0, mime: 'image/gif' }) }}
           onClose={closeEmojiPicker}
         />
       )}

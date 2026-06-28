@@ -34,9 +34,11 @@ if ($Release) {
         force       = $false
         notes       = "Bug fixes"
         changelog   = @(
-            "Emoji picker slides up/down with smooth animation (respects reduce motion)"
+            "Emoji picker slides up/down with smooth animation (respects reduce motion)",
+            "Photo gallery now shows your photos instantly - no system picker dialog",
+            "GIF and Sticker picker powered by Giphy"
         )
-        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=10 }
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=14 }
         downloadUrl = $downloadUrl
     }
 
