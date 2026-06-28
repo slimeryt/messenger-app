@@ -34,10 +34,10 @@ if ($Release) {
         force       = $false
         notes       = "Bug fixes"
         changelog   = @(
-            "Fix: long press on mobile no longer immediately closes the selection mode",
-            "Fix: dragging back from a chat no longer misplaces the entire app layout"
+            "Fix: long press selection mode no longer immediately closes (Android contextmenu event suppressed)",
+            "Fix: dragging back from a chat no longer slides the whole app (predictive back gesture opted in)"
         )
-        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=1 }
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=2 }
         downloadUrl = $downloadUrl
     }
 
