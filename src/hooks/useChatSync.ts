@@ -77,6 +77,7 @@ async function enrichParticipantProfiles(chats: Chat[]): Promise<Chat[]> {
 export function useChatSync() {
   const me = useAuthStore((s) => s.user)
   const setChats = useChatStore((s) => s.setChats)
+  const setChatsReady = useChatStore((s) => s.setChatsReady)
   const prevTimesRef = useRef<Record<string, number>>({})
   const initialLoadRef = useRef(true)
   const appIsActiveRef = useRef(true)
@@ -93,6 +94,7 @@ export function useChatSync() {
   useEffect(() => {
     if (!me) {
       setChats([])
+      setChatsReady(false)
       return
     }
 
@@ -119,6 +121,7 @@ export function useChatSync() {
         }
 
         prevTimesRef.current = Object.fromEntries(parsed.map((c) => [c.id, c.lastMessageTime]))
+        if (initialLoadRef.current) setChatsReady(true)
         initialLoadRef.current = false
       },
       (err) => console.error('Chat sync failed:', err)
@@ -128,6 +131,7 @@ export function useChatSync() {
       unsub()
       initialLoadRef.current = true
       prevTimesRef.current = {}
+      setChatsReady(false)
     }
   }, [me?.uid, setChats])
 }

@@ -5,7 +5,9 @@ import { isListedChat, sortChats } from '../lib/chats'
 interface ChatStore {
   chats: Chat[]
   activeChatId: string | null
+  chatsReady: boolean
   setChats: (chats: Chat[]) => void
+  setChatsReady: (v: boolean) => void
   setActiveChatId: (id: string | null) => void
   upsertChat: (chat: Chat) => void
   patchChat: (id: string, patch: Partial<Chat>) => void
@@ -14,6 +16,8 @@ interface ChatStore {
 export const useChatStore = create<ChatStore>((set) => ({
   chats: [],
   activeChatId: null,
+  chatsReady: false,
+  setChatsReady: (chatsReady) => set({ chatsReady }),
   setChats: (chats) => set({ chats: sortChats(chats.filter(isListedChat)) }),
   setActiveChatId: (activeChatId) => set({ activeChatId }),
   upsertChat: (chat) =>

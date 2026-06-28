@@ -45,19 +45,41 @@ function dateLabel(ts: number) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+const SKELETON_LAYOUT = [
+  { own: false, w: '55%' }, { own: true, w: '45%' },
+  { own: false, w: '70%' }, { own: true, w: '60%' },
+  { own: false, w: '40%' }, { own: true, w: '50%' },
+]
+
+function MessageListSkeleton() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '16px 16px 8px' }}>
+      {SKELETON_LAYOUT.map((s, i) => (
+        <div key={i} style={{ display: 'flex', flexDirection: s.own ? 'row-reverse' : 'row', gap: 8, alignItems: 'flex-end' }}>
+          {!s.own && <div className="nod-skeleton" style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0 }} />}
+          <div className="nod-skeleton" style={{ width: s.w, height: 38, borderRadius: s.own ? '12px 12px 2px 12px' : '12px 12px 12px 2px' }} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function MessageList({ chatId, members, onReply, lastRead, otherUid, isGroup, onEdit, selectedIds, onToggleSelect }: Props) {
   const messages = useMessageStore((s) => s.messages[chatId] ?? [])
   const setMessages = useMessageStore((s) => s.setMessages)
   const me = useAuthStore((s) => s.user)
   const bottomRef = useRef<HTMLDivElement>(null)
   const [ctx, setCtx] = useState<CtxState | null>(null)
+  const [msgsReady, setMsgsReady] = useState(false)
   const selectionMode = selectedIds.size > 0
 
   useEffect(() => {
+    setMsgsReady(false)
     const q = query(collection(db, 'chats', chatId, 'messages'), orderBy('createdAt', 'asc'), limit(100))
     const unsub = onSnapshot(q, (snap) => {
       const msgs: Message[] = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Message))
       setMessages(chatId, msgs)
+      setMsgsReady(true)
     })
     return unsub
   }, [chatId])
@@ -170,6 +192,8 @@ export function MessageList({ chatId, members, onReply, lastRead, otherUid, isGr
 
   const ctxIsOwn = ctx ? ctx.msg.senderId === me?.uid : false
   const ctxIsText = ctx?.msg.type === 'text'
+
+  if (!msgsReady) return <MessageListSkeleton />
 
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2, paddingBlock: 8, position: 'relative' }}>

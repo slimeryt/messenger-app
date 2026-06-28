@@ -9,8 +9,23 @@ import { Search, Edit, BookmarkCheck } from 'lucide-react'
 import { NewChatModal } from './NewChatModal'
 import { getChatAvatar, getChatTitle, isListedChat } from '../../lib/chats'
 
+function ChatRowSkeleton() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px' }}>
+      <div className="nod-skeleton" style={{ width: 50, height: 50, borderRadius: '50%', flexShrink: 0 }} />
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <div className="nod-skeleton" style={{ width: '45%', height: 13 }} />
+          <div className="nod-skeleton" style={{ width: 28, height: 11 }} />
+        </div>
+        <div className="nod-skeleton" style={{ width: '70%', height: 12 }} />
+      </div>
+    </div>
+  )
+}
+
 export function ChatListScreen() {
-  const { chats, setActiveChatId } = useChatStore()
+  const { chats, chatsReady, setActiveChatId } = useChatStore()
   const me = useAuthStore((s) => s.user)
   const [search, setSearch] = useState('')
   const [showNew, setShowNew] = useState(false)
@@ -107,14 +122,17 @@ export function ChatListScreen() {
           </div>
         </button>
 
-        {filtered.map((chat) => (
-          <ChatRow key={chat.id} chat={chat} myUid={me?.uid ?? ''} onClick={() => setActiveChatId(chat.id)} />
-        ))}
+        {!chatsReady
+          ? Array.from({ length: 5 }).map((_, i) => <ChatRowSkeleton key={i} />)
+          : filtered.map((chat) => (
+              <ChatRow key={chat.id} chat={chat} myUid={me?.uid ?? ''} onClick={() => setActiveChatId(chat.id)} />
+            ))
+        }
 
-        {filtered.length === 0 && chats.length > 0 && (
+        {chatsReady && filtered.length === 0 && chats.length > 0 && (
           <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>No results</div>
         )}
-        {chats.length === 0 && (
+        {chatsReady && chats.length === 0 && (
           <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)', fontSize: 13, lineHeight: 1.6 }}>
             No chats yet.<br />Tap the pencil icon to start one.
           </div>

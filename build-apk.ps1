@@ -30,13 +30,14 @@ if ($Release) {
     $downloadUrl = "https://github.com/slimeryt/messenger-app/releases/download/$Release/Nod.apk"
 
     $meta = [ordered]@{
-        type        = "bugfix-minor"
+        type        = "ui"
         force       = $false
-        notes       = "Bug fixes"
+        notes       = "UI improvements"
         changelog   = @(
-            "Fixed white bar appearing at the bottom when the keyboard opens"
+            "Skeleton loading placeholders for chat list and messages",
+            "Fixed white bar behind the keyboard"
         )
-        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=17 }
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=18 }
         downloadUrl = $downloadUrl
     }
 
