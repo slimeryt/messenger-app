@@ -2,6 +2,7 @@ package com.nodapp;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
 import android.webkit.PermissionRequest;
@@ -43,6 +44,7 @@ public class MainActivity extends BridgeActivity {
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
+        bridge.getWebView().setBackgroundColor(Color.parseColor("#141414"));
         bridge.getWebView().setOverScrollMode(View.OVER_SCROLL_NEVER);
         bridge.getWebView().setHorizontalScrollBarEnabled(false);
         // Reset any horizontal scroll the WebView widget accumulates during edge swipes
