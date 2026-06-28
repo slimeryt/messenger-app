@@ -34,10 +34,9 @@ if ($Release) {
         force       = $false
         notes       = "Bug fixes"
         changelog   = @(
-            "Fix: back gesture no longer animates the whole app (OnBackPressedCallback suppresses OS animation)",
-            "Fix: window background set to dark so no grey flash during any residual animation"
+            "Fix: removed enableOnBackInvokedCallback flag that was causing Android 13 predictive back drag animation"
         )
-        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=4 }
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=5 }
         downloadUrl = $downloadUrl
     }
 
