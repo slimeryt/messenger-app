@@ -34,7 +34,7 @@ if ($Release) {
         force       = $false
         notes       = "Bug fixes"
         changelog   = @(
-            "Removed back gesture navigation — use the in-app back button instead"
+            "Removed back gesture navigation - use the in-app back button instead"
         )
         counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=7 }
         downloadUrl = $downloadUrl
