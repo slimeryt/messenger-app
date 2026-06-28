@@ -208,11 +208,7 @@ export default function App() {
   }
 
   if (!ready) {
-    return (
-      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)', fontSize: 13, background: 'var(--bg)' }}>
-        Loading…
-      </div>
-    )
+    return <div style={{ height: '100%', background: 'var(--bg)' }} />
   }
 
   const showUpdate = updateInfo && (updateInfo.force || !updateDismissed)

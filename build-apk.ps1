@@ -34,10 +34,10 @@ if ($Release) {
         force       = $false
         notes       = "UI improvements"
         changelog   = @(
-            "Skeleton loading placeholders for chat list and messages",
-            "Fixed white bar behind the keyboard"
+            "Fixed white bar behind keyboard (native resize mode)",
+            "Removed loading screen on app start"
         )
-        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=18 }
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=19 }
         downloadUrl = $downloadUrl
     }
 
