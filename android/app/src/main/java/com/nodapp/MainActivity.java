@@ -24,14 +24,10 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ApkInstallerPlugin.class);
         registerPlugin(CallMediaPlugin.class);
         super.onCreate(savedInstanceState);
-        // Suppress OS-level back gesture animation; navigate WebView directly
+        // Consume back gesture so Android plays no animation and does not exit the app
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
-            public void handleOnBackPressed() {
-                if (bridge != null && bridge.getWebView() != null && bridge.getWebView().canGoBack()) {
-                    bridge.getWebView().goBack();
-                }
-            }
+            public void handleOnBackPressed() { /* intentionally empty — use in-app back button */ }
         });
     }
 

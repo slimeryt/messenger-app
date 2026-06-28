@@ -80,14 +80,6 @@ export default function App() {
     return () => { handle?.remove() }
   }, [user?.uid])
 
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return
-    let handle: { remove: () => void } | null = null
-    CapApp.addListener('backButton', ({ canGoBack }) => {
-      if (canGoBack) window.history.back()
-    }).then(h => { handle = h })
-    return () => { handle?.remove() }
-  }, [])
 
   useEffect(() => initSafeAreaInsets(), [])
 

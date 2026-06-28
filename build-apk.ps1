@@ -34,10 +34,9 @@ if ($Release) {
         force       = $false
         notes       = "Bug fixes"
         changelog   = @(
-            "Fix: WebView horizontal scroll reset listener prevents edge-swipe layout shift",
-            "Fix: touch-action pan-y on root prevents browser from handling horizontal swipes"
+            "Removed back gesture navigation — use the in-app back button instead"
         )
-        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=6 }
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=7 }
         downloadUrl = $downloadUrl
     }
 
