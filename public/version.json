@@ -1,0 +1,1 @@
+{"type":"bugfix-minor","force":false,"notes":"Bug fixes","changelog":["Fix update checker hitting GitHub API rate limit - now fetches version.json directly"],"counters":{"major":1,"minor":0,"ui":4,"bugfixMajor":5,"bugfixMinor":4},"downloadUrl":"https://github.com/slimeryt/messenger-app/releases/download/v1.0454/Nod.apk"}
