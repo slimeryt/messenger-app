@@ -34,10 +34,9 @@ if ($Release) {
         force       = $false
         notes       = "UI improvements"
         changelog   = @(
-            "Fixed white bar behind keyboard (native resize mode)",
-            "Removed loading screen on app start"
+            "Fixed white bar behind keyboard (navigation bar color)"
         )
-        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=19 }
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=20 }
         downloadUrl = $downloadUrl
     }
 
