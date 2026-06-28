@@ -34,10 +34,10 @@ if ($Release) {
         force       = $false
         notes       = "Bug fixes"
         changelog   = @(
-            "Fix: long press selection mode handles both contextmenu-first and timer-first orderings",
-            "Fix: WebView overscroll disabled so dragging back no longer shifts the app layout"
+            "Fix: back gesture no longer animates the whole app (OnBackPressedCallback suppresses OS animation)",
+            "Fix: window background set to dark so no grey flash during any residual animation"
         )
-        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=3 }
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=4 }
         downloadUrl = $downloadUrl
     }
 

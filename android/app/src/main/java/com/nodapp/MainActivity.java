@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.webkit.PermissionRequest;
 import android.webkit.WebSettings;
+import androidx.activity.OnBackPressedCallback;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
@@ -22,6 +23,15 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ApkInstallerPlugin.class);
         registerPlugin(CallMediaPlugin.class);
         super.onCreate(savedInstanceState);
+        // Suppress OS-level back gesture animation; navigate WebView directly
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (bridge != null && bridge.getWebView() != null && bridge.getWebView().canGoBack()) {
+                    bridge.getWebView().goBack();
+                }
+            }
+        });
     }
 
     @Override
