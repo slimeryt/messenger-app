@@ -34,9 +34,9 @@ if ($Release) {
         force       = $false
         notes       = "Bug fixes"
         changelog   = @(
-            "Removed swipe-back gesture from chat page"
+            "Emoji picker slides up/down with smooth animation (respects reduce motion)"
         )
-        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=9 }
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=10 }
         downloadUrl = $downloadUrl
     }
 

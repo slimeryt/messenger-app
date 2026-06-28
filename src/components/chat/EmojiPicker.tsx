@@ -128,9 +128,10 @@ interface Props {
   onSelect: (emoji: string) => void
   onSelectFlag?: (code: string) => void
   onClose: () => void
+  isClosing?: boolean
 }
 
-export function EmojiPicker({ onSelect, onSelectFlag, onClose }: Props) {
+export function EmojiPicker({ onSelect, onSelectFlag, onClose, isClosing }: Props) {
   const [cat, setCat] = useState(0)
   const [search, setSearch] = useState('')
   const [recent, setRecent] = useState<string[]>(() => {
@@ -171,6 +172,7 @@ export function EmojiPicker({ onSelect, onSelectFlag, onClose }: Props) {
 
   return (
     <div
+      className={isClosing ? 'emoji-picker-exit' : 'emoji-picker-enter'}
       style={{
         background: 'var(--bg-2)',
         borderTop: '1px solid var(--border)',

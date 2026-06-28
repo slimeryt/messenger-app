@@ -36,6 +36,21 @@
   animation: pill-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
+@keyframes emoji-in {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes emoji-out {
+  from { transform: translateY(0);    opacity: 1; }
+  to   { transform: translateY(100%); opacity: 0; }
+}
+.emoji-picker-enter {
+  animation: emoji-in 0.28s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+}
+.emoji-picker-exit {
+  animation: emoji-out 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;

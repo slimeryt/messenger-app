@@ -58,6 +58,18 @@ export function MessageInput({ chatId, replyTo, onCancelReply, editMsg, onCancel
   const [pendingFile, setPendingFile] = useState<{ data: string; name: string; size: number; mime: string; isImage: boolean } | null>(null)
   const [showPicker, setShowPicker] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [emojiPickerClosing, setEmojiPickerClosing] = useState(false)
+  const emojiCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function openEmojiPicker() {
+    if (emojiCloseTimer.current) clearTimeout(emojiCloseTimer.current)
+    setEmojiPickerClosing(false)
+    setShowEmojiPicker(true)
+  }
+  function closeEmojiPicker() {
+    setEmojiPickerClosing(true)
+    emojiCloseTimer.current = setTimeout(() => { setShowEmojiPicker(false); setEmojiPickerClosing(false) }, 220)
+  }
   const [pendingImages, setPendingImages] = useState<{ data: string; name: string; size: number }[]>([])
   const me = useAuthStore((s) => s.user)
   const mediaRef = useRef<MediaRecorder | null>(null)
@@ -356,7 +368,7 @@ export function MessageInput({ chatId, replyTo, onCancelReply, editMsg, onCancel
             <Image size={18} />
           </button>
           <button
-            onClick={() => setShowEmojiPicker(v => !v)}
+            onClick={() => showEmojiPicker ? closeEmojiPicker() : openEmojiPicker()}
             style={{ color: showEmojiPicker ? 'var(--accent)' : 'var(--text-3)', padding: '4px 6px', flexShrink: 0, display: 'flex', alignItems: 'center' }}
           >
             {showEmojiPicker ? <Keyboard size={18} /> : <Smile size={18} />}
@@ -408,9 +420,10 @@ export function MessageInput({ chatId, replyTo, onCancelReply, editMsg, onCancel
 
       {showEmojiPicker && (
         <EmojiPicker
-          onSelect={(e) => { insertEmoji(e); setShowEmojiPicker(false) }}
-          onSelectFlag={(code) => { insertFlag(code); setShowEmojiPicker(false) }}
-          onClose={() => setShowEmojiPicker(false)}
+          isClosing={emojiPickerClosing}
+          onSelect={(e) => { insertEmoji(e); closeEmojiPicker() }}
+          onSelectFlag={(code) => { insertFlag(code); closeEmojiPicker() }}
+          onClose={closeEmojiPicker}
         />
       )}
     </div>
