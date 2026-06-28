@@ -70,6 +70,8 @@ interface Props {
   sender: User | null
   isOwn: boolean
   isRead?: boolean
+  readBy?: string[]
+  readByMembers?: Record<string, { username: string; tag: string; avatarUrl: string | null }>
   onReply: (msg: Message) => void
   onReact: (msgId: string, emoji: string) => void
   onContextMenu: (msg: Message, x: number, y: number) => void
@@ -78,7 +80,7 @@ interface Props {
   onSelect?: (msg: Message) => void
 }
 
-export function MessageItem({ msg, sender, isOwn, isRead, onReply, onReact, onContextMenu, selectionMode, selected, onSelect }: Props) {
+export function MessageItem({ msg, sender, isOwn, isRead, readBy, readByMembers, onReply, onReact, onContextMenu, selectionMode, selected, onSelect }: Props) {
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const touchPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const didLongPress = useRef(false)
@@ -250,10 +252,41 @@ export function MessageItem({ msg, sender, isOwn, isRead, onReply, onReact, onCo
           <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
             {time}{msg.edited && ' · edited'}
           </span>
-          {isOwn && (
+          {isOwn && readBy === undefined && (
             isRead
               ? <CheckCheck size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
               : <Check size={13} style={{ color: 'var(--text-3)', flexShrink: 0 }} />
+          )}
+          {isOwn && readBy !== undefined && readBy.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', marginLeft: 2 }}>
+              {readBy.slice(0, 3).map((uid, i) => {
+                const m = readByMembers?.[uid]
+                const name = m?.username ?? '?'
+                const url = m?.avatarUrl ?? null
+                return (
+                  <div
+                    key={uid}
+                    title={name}
+                    style={{
+                      width: 14, height: 14, borderRadius: '50%',
+                      background: url ? undefined : 'var(--accent)',
+                      backgroundImage: url ? `url(${url})` : undefined,
+                      backgroundSize: 'cover',
+                      border: '1.5px solid var(--bg)',
+                      marginLeft: i === 0 ? 0 : -4,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 7, color: '#fff', fontWeight: 700,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {!url && name[0].toUpperCase()}
+                  </div>
+                )
+              })}
+              {readBy.length > 3 && (
+                <span style={{ fontSize: 9, color: 'var(--text-3)', marginLeft: 2 }}>+{readBy.length - 3}</span>
+              )}
+            </div>
           )}
         </div>
       </div>

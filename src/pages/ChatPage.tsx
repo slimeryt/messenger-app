@@ -195,11 +195,11 @@ function RealChatPage({ chatId, onBack }: { chatId: string; onBack?: () => void 
     return unsub
   }, [chat?.type, chat?.memberIds.join(','), me?.uid])
 
-  // Mark as read when chat is opened
+  // Mark as read when chat is opened or new messages arrive
   useEffect(() => {
     if (!me?.uid) return
     updateDoc(doc(db, 'chats', chatId), { [`lastRead.${me.uid}`]: Date.now() }).catch(() => {})
-  }, [chatId, me?.uid])
+  }, [chatId, me?.uid, messages.length])
 
   useEffect(() => {
     if (!chat) return
@@ -270,6 +270,7 @@ function RealChatPage({ chatId, onBack }: { chatId: string; onBack?: () => void 
         onReply={setReplyTo}
         lastRead={chat.lastRead}
         otherUid={otherUid}
+        isGroup={chat.type === 'group'}
         onEdit={setEditMsg}
         selectedIds={selectedIds}
         onToggleSelect={handleToggleSelect}

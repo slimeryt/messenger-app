@@ -30,15 +30,14 @@ if ($Release) {
     $downloadUrl = "https://github.com/slimeryt/messenger-app/releases/download/$Release/Nod.apk"
 
     $meta = [ordered]@{
-        type        = "ui"
+        type        = "bugfixMinor"
         force       = $false
-        notes       = "Bug fixes"
+        notes       = "Read receipts"
         changelog   = @(
-            "Emoji picker slides up/down with smooth animation (respects reduce motion)",
-            "Photo gallery now shows your photos instantly - no system picker dialog",
-            "GIF and Sticker picker powered by Giphy"
+            "Read receipts in DMs (single tick = sent, double tick = seen)",
+            "Group chats show reader avatars under each message"
         )
-        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=14 }
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=15 }
         downloadUrl = $downloadUrl
     }
 

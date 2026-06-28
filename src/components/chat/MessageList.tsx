@@ -24,6 +24,7 @@ interface Props {
   onReply: (msg: Message) => void
   lastRead?: Record<string, number>
   otherUid?: string
+  isGroup?: boolean
   onEdit?: (msg: Message) => void
   selectedIds: Set<string>
   onToggleSelect: (msg: Message) => void
@@ -43,7 +44,7 @@ function dateLabel(ts: number) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export function MessageList({ chatId, members, onReply, lastRead, otherUid, onEdit, selectedIds, onToggleSelect }: Props) {
+export function MessageList({ chatId, members, onReply, lastRead, otherUid, isGroup, onEdit, selectedIds, onToggleSelect }: Props) {
   const messages = useMessageStore((s) => s.messages[chatId] ?? [])
   const setMessages = useMessageStore((s) => s.setMessages)
   const me = useAuthStore((s) => s.user)
@@ -136,6 +137,21 @@ export function MessageList({ chatId, members, onReply, lastRead, otherUid, onEd
     setCtx(null)
   }
 
+  // Compute readBy: for each non-me uid, find the last message they've read
+  const readByMsg: Record<string, string[]> = {}
+  if (isGroup && lastRead && me) {
+    for (const [uid, readTs] of Object.entries(lastRead)) {
+      if (uid === me.uid) continue
+      let lastReadMsgId: string | null = null
+      for (const msg of messages) {
+        if (msg.createdAt <= readTs) lastReadMsgId = msg.id
+      }
+      if (lastReadMsgId) {
+        readByMsg[lastReadMsgId] = [...(readByMsg[lastReadMsgId] ?? []), uid]
+      }
+    }
+  }
+
   // Group messages by date
   const grouped: { date: string; msgs: Message[] }[] = []
   for (const msg of messages) {
@@ -166,7 +182,8 @@ export function MessageList({ chatId, members, onReply, lastRead, otherUid, onEd
               ? { ...members[msg.senderId], uid: msg.senderId, email: '', bio: '', phone: '', createdAt: 0, lastSeen: 0, online: false, role: 'user' as const, banned: false, bannerUrl: null }
               : null
             const isOwn = msg.senderId === me?.uid
-            const isRead = isOwn && !!otherUid && !!lastRead?.[otherUid] && lastRead[otherUid] >= msg.createdAt
+            const isRead = isOwn && !!otherUid && !isGroup && !!lastRead?.[otherUid] && lastRead[otherUid] >= msg.createdAt
+            const readBy = isGroup ? (readByMsg[msg.id] ?? []) : undefined
             return (
               <MessageItem
                 key={msg.id}
@@ -174,6 +191,8 @@ export function MessageList({ chatId, members, onReply, lastRead, otherUid, onEd
                 sender={sender}
                 isOwn={isOwn}
                 isRead={isRead}
+                readBy={readBy}
+                readByMembers={members}
                 onReply={onReply}
                 onReact={handleReact}
                 onContextMenu={handleContextMenu}
