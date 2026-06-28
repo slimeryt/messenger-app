@@ -34,9 +34,9 @@ if ($Release) {
         force       = $false
         notes       = "Bug fixes"
         changelog   = @(
-            "Removed back gesture navigation - use the in-app back button instead"
+            "Fix: override onBackPressed to fully block all back navigation paths"
         )
-        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=7 }
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=8 }
         downloadUrl = $downloadUrl
     }
 
