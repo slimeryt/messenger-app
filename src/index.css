@@ -80,6 +80,7 @@ html, body {
   position: fixed;
   inset: 0;
   overflow: hidden;
+  touch-action: pan-y;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 14px;
   font-weight: var(--fw-regular);

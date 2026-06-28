@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.webkit.PermissionRequest;
 import android.webkit.WebSettings;
+import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -46,6 +47,11 @@ public class MainActivity extends BridgeActivity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         bridge.getWebView().setOverScrollMode(View.OVER_SCROLL_NEVER);
+        bridge.getWebView().setHorizontalScrollBarEnabled(false);
+        // Reset any horizontal scroll the WebView widget accumulates during edge swipes
+        bridge.getWebView().setOnScrollChangeListener((v, scrollX, scrollY, oldScrollX, oldScrollY) -> {
+            if (scrollX != 0) ((WebView) v).scrollTo(0, scrollY);
+        });
 
         bridge.getWebView().setWebChromeClient(new BridgeWebChromeClient(bridge) {
             @Override
