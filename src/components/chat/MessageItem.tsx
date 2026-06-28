@@ -112,7 +112,10 @@ export function MessageItem({ msg, sender, isOwn, isRead, onReply, onReact, onCo
   }
   function handleContextMenuEvt(e: React.MouseEvent) {
     e.preventDefault()
-    if (didLongPress.current) return  // contextmenu fires after mobile long-press; timer already handled it
+    if (didLongPress.current) return  // timer already fired first; suppress
+    // contextmenu fired before our 500ms timer — cancel it so it won't double-fire
+    if (holdTimer.current) { clearTimeout(holdTimer.current); holdTimer.current = null }
+    didLongPress.current = true
     onSelect?.(msg)
   }
 

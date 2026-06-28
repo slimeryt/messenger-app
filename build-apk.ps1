@@ -34,10 +34,10 @@ if ($Release) {
         force       = $false
         notes       = "Bug fixes"
         changelog   = @(
-            "Fix: long press selection mode no longer immediately closes (Android contextmenu event suppressed)",
-            "Fix: dragging back from a chat no longer slides the whole app (predictive back gesture opted in)"
+            "Fix: long press selection mode handles both contextmenu-first and timer-first orderings",
+            "Fix: WebView overscroll disabled so dragging back no longer shifts the app layout"
         )
-        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=2 }
+        counters    = [ordered]@{ major=1; minor=0; ui=5; bugfixMajor=0; bugfixMinor=3 }
         downloadUrl = $downloadUrl
     }
 
